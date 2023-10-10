@@ -1,13 +1,37 @@
-name: 'Hello World'
-description: 'Greet someone and record the time'
+name: 'Github -> Asana Integrations'
+description: 'Common integrations between Github and Asana'
 inputs:
-  who-to-greet:  # id of input
-    description: 'Who to greet'
+  action:
+    description: 'Action that will be executed. `create-task` to create a task based on the ISSUE'
     required: true
-    default: 'World'
-outputs:
-  time: # id of output
-    description: 'The time we greeted you'
+  github-pat:
+    description: 'Github Public Access Token.'
+    required: false
+  asana-pat:
+    description: 'Asana Public Access Token.'
+    required: false
+  asana-project:
+    description: 'Asana Project Id where the Task will be added.'
+    required: false
+  asana-section:
+    description: 'The Section of the Project where the Task will be added to'
+    required: false
+  asana-task-name:
+    description: 'Name of the Asana task you want to create.'
+    required: false
+  asana-task-description:
+    description: 'Description of the Asana task you want to create.'
+    required: false
+  trigger-phrase:
+    description: 'Prefix used to identify Asana tasks (URL).'
+    required: false
+  github-repository:
+    description: 'Github Repository to check for the latest release.'
+    required: false
+  github-org:
+    description: 'Github Organisation where the repository is hosted, to check for the latest release.'
+    required: false
+    
 runs:
   using: 'node20'
   main: 'index.js'
