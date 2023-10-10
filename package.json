@@ -1,0 +1,16 @@
+{
+  "name": "native-github-asana-sync",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://dub.duckduckgo.com/duckduckgo/native-github-asana-sync.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
