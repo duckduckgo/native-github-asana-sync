@@ -282,7 +282,7 @@ async function createAsanaTask(){
     } else {
         try {
             console.info('creating asana task, checking first if task already exists', taskName);
-            const existingTaskId = findTaskInSection(client, sectionId, taskName)
+            const existingTaskId = await findTaskInSection(client, sectionId, taskName)
             console.log(`task found with id ${existingTaskId}`)
             if (existingTaskId > 0){
                 core.setOutput('taskId', existingTaskId)
