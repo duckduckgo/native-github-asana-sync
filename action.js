@@ -234,7 +234,6 @@ async function findTaskInSection(client, sectionId, name) {
     try {
         client.tasks.getTasksForSection(sectionId, {opt_pretty: true
         }).then((result) => {
-            console.log(result);
             if (result.data.length === 0) { 
                 console.log("There are no tasks in the section")
                 return 0
@@ -245,7 +244,7 @@ async function findTaskInSection(client, sectionId, name) {
                     return 0
                 } else {
                     console.info('Task found task', task);
-                    return task
+                    return task.gid
                 }
              }    
         });
