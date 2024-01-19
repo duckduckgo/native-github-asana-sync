@@ -232,7 +232,7 @@ async function getLatestRepositoryRelease(){
 
 async function findTaskInSection(client, sectionId, name) {
     try {
-        client.tasks.getTasksForSection(sectionId, {opt_pretty: true
+        await client.tasks.getTasksForSection(sectionId, {opt_pretty: true
         }).then((result) => {
             if (result.data.length === 0) { 
                 console.log("There are no tasks in the section")
