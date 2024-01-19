@@ -230,7 +230,7 @@ async function getLatestRepositoryRelease(){
 
 }
 
-async function findTaskInSection(sectionId, name) {
+async function findTaskInSection(client, sectionId, name) {
     try {
         client.tasks.getTasksForSection(sectionId, {opt_pretty: true
         }).then((result) => {
@@ -283,7 +283,7 @@ async function createAsanaTask(){
     } else {
         try {
             console.info('creating asana task, checking first if task already exists', taskName);
-            const existingTaskId = findTaskInSection(sectionId, taskName)
+            const existingTaskId = findTaskInSection(client, sectionId, taskName)
             if (existingTaskId > 0){
                 core.setOutput('taskId', existingTaskId)
                 core.setOutput('duplicate', true)
