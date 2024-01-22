@@ -256,7 +256,7 @@ async function findTaskInSection(client, sectionId, name) {
 async function createAsanaTask(){
     const 
         projectId = core.getInput('asana-project', {required: true}),
-        sectionId = core.getInput('asana-section'),
+        sectionId = sectionId = core.getInput('asana-section'),
         taskName = core.getInput('asana-task-name', {required: true}),
         taskDescription = core.getInput('asana-task-description', {required: true});
 
@@ -281,7 +281,7 @@ async function createAsanaTask(){
         }
     } else {
         try {
-            console.info('creating asana task, checking first if task already exists', taskName);
+            console.info('creating asana task, checking first if task already exists in section', taskName, sectionId);
             let existingTaskId = 0
             try {
                 await client.tasks.getTasksForSection({
