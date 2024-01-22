@@ -231,21 +231,23 @@ async function getLatestRepositoryRelease(){
 }
 
 async function findTaskInSection(client, sectionId, name) {
+    let existingTaskId = "0"
     try {
         console.log('finding tasks in section', sectionId);
         await client.tasks.getTasksForSection(sectionId).then((result) => {
             const task = result.data.find(task => task.name === name);
             if (!task){
                 console.log("Task not found")
-                return "0"
+                existingTaskId = "0"
             } else {
-                console.info('Task found task', task);
-                return task.gid
+                console.info('Task found', task);
+                existingTaskId = task.gid
             }            
         });
     } catch (error) {
         console.error('rejecting promise', error);
     }
+    return existingTaskId
 }
 
 async function createTask(client, name, description, projectId) {
@@ -287,7 +289,7 @@ async function createTaskInSection(client, name, description, projectId, section
 
 async function createOrUpdateTask(client, name, description, projectId, sectionId) {
     const existingTaskId = await findTaskInSection(client, sectionId, name)
-    if (!existingTaskId) {
+    if (existingTaskId = "0") {
         return createTaskInSection(client, name, description, projectId, sectionId)
     } else {
         core.setOutput('taskId', existingTaskId)
