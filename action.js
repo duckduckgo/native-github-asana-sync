@@ -283,7 +283,7 @@ async function createAsanaTask(){
         try {
             console.info('creating asana task, checking first if task already exists in section', taskName);
             let existingTaskId = 0        
-            await client.tasks.getTasksForSection({
+            return await client.tasks.getTasksForSection({
                 sectionGid: sectionId
             }).then((result) => {
                 const task = result.data.find(task => task.name === name);
