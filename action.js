@@ -237,10 +237,10 @@ async function findTaskInSection(client, sectionId, name) {
         await client.tasks.getTasksForSection(sectionId).then((result) => {
             const task = result.data.find(task => task.name === name);
             if (!task){
-                console.log("Task not found")
+                console.log("task not found")
                 existingTaskId = "0"
             } else {
-                console.info('Task found', task);
+                console.info('task found', task.gid);
                 existingTaskId = task.gid
             }            
         });
@@ -289,12 +289,13 @@ async function createTaskInSection(client, name, description, projectId, section
     return createdTaskId
 }
 
-async function createOrUpdateTask(client, name, description, projectId, sectionId) {
+async function createTaskIfNotDuplicate(client, name, description, projectId, sectionId) {
     console.log('checking for duplicate task before creating a new one', name);
     let existingTaskId = await findTaskInSection(client, sectionId, name)
     if (existingTaskId == "0") {
         return createTaskInSection(client, name, description, projectId, sectionId)
     } else {
+        console.log("task already exists, skipping")
         core.setOutput('taskId', existingTaskId)
         core.setOutput('duplicate', true)
     }
@@ -313,7 +314,7 @@ async function createAsanaTask(){
     if (sectionId === "") {
         return createTask(client, taskName, taskDescription, projectId)
     } else {    
-        return createOrUpdateTask(client, taskName, taskDescription, projectId, sectionId)
+        return createTaskIfNotDuplicate(client, taskName, taskDescription, projectId, sectionId)
     }       
 }
 
