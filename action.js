@@ -281,47 +281,31 @@ async function createAsanaTask(){
         }
     } else {
         try {
-            console.info('creating asana task, checking first if task already exists in section', taskName, sectionId);
-            let existingTaskId = 0
-            try {
-                await client.tasks.getTasksForSection({
-                    sectionGid: sectionId
-                }).then((result) => {
-                    if (result.data.length === 0) { 
-                        console.log("There are no tasks in the section")
-                     } else {
-                        const task = result.data.find(task => task.name === name);
-                        if (!task){
-                            console.log("Task not found")
-                        } else {
-                            console.info('Task found with id', task);
-                            existingTaskId = task.gid
-                        }
-                     }    
-                });
-            } catch (error) {
-                console.info('errors', error);
-                console.error('rejecting promise', error);
-            }
-
-            if (existingTaskId == 0){
-                console.info('creating asana task', projectId);     
-                await client.tasks.create({            
-                    projects: [projectId],
-                    memberships: [{project: projectId, section: sectionId}],
-                    name: taskName,
-                    notes: taskDescription,
-    
-                }).then((response) => {
-                    const taskId = response.gid
-                    console.log(`task created with id ${taskId}`)
-                    core.setOutput('taskId', taskId)
-                    core.setOutput('duplicate', false)
-                });
-            } else {
-                core.setOutput('taskId', existingTaskId)
-                core.setOutput('duplicate', true)
-            }
+            console.info('creating asana task, checking first if task already exists in section', taskName);
+            let existingTaskId = 0        
+            await client.tasks.getTasksForSection({
+                sectionGid: sectionId
+            }).then((result) => {
+                const task = result.data.find(task => task.name === name);
+                if (!task){
+                    console.info('creating asana task', projectId);     
+                    client.tasks.create({            
+                        projects: [projectId],
+                        memberships: [{project: projectId, section: sectionId}],
+                        name: taskName,
+                        notes: taskDescription,
+        
+                    }).then((response) => {
+                        const taskId = response.gid
+                        console.log(`task created with id ${taskId}`)
+                        core.setOutput('taskId', taskId)
+                        core.setOutput('duplicate', false)
+                    });
+                } else {
+                    core.setOutput('taskId', existingTaskId)
+                    core.setOutput('duplicate', true)
+                }
+            });
         } catch (error) {
             console.info('errors', error);
             console.error('rejecting promise', error);
