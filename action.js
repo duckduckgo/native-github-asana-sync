@@ -254,13 +254,13 @@ async function findTaskInSection(client, sectionId, name) {
 }
 
 async function createAsanaTask(){
+    const client = await buildAsanaClient();
+
     const 
         projectId = core.getInput('asana-project', {required: true}),
         sectionId = core.getInput('asana-section'),
         taskName = core.getInput('asana-task-name', {required: true}),
         taskDescription = core.getInput('asana-task-description', {required: true});
-
-    const client = await buildAsanaClient();
 
     if (sectionId === "") {
         try {
@@ -281,10 +281,8 @@ async function createAsanaTask(){
         }
     } else {
         try {
-            console.info('creating asana task, checking first if task already exists in section', taskName);
-            let existingTaskId = 0        
-            return await client.tasks.getTasksForSection({
-                sectionGid: sectionId
+            console.info('creating asana task, checking first if task already exists in section', taskName);    
+            await client.tasks.getTasksForSection({sectionId
             }).then((result) => {
                 const task = result.data.find(task => task.name === name);
                 if (!task){
@@ -307,7 +305,6 @@ async function createAsanaTask(){
                 }
             });
         } catch (error) {
-            console.info('errors', error);
             console.error('rejecting promise', error);
         }
     }            
