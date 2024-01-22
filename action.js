@@ -277,7 +277,7 @@ async function createTaskInSection(client, name, description, projectId, section
             pretty: true})
             .then((result) => {
                 createdTaskId = result.gid
-                console.log('task created', createdTaskId);
+                console.log('task created in section', createdTaskId);
                 core.setOutput('taskId', existingTaskId)
                 core.setOutput('duplicate', false)
             })
@@ -289,7 +289,7 @@ async function createTaskInSection(client, name, description, projectId, section
 
 async function createOrUpdateTask(client, name, description, projectId, sectionId) {
     let existingTaskId = await findTaskInSection(client, sectionId, name)
-    if (existingTaskId = "0") {
+    if (existingTaskId == "0") {
         return createTaskInSection(client, name, description, projectId, sectionId)
     } else {
         core.setOutput('taskId', existingTaskId)
