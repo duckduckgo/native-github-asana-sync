@@ -282,7 +282,28 @@ async function createAsanaTask(){
     } else {
         try {
             console.info('creating asana task, checking first if task already exists', taskName);
-            const existingTaskId = await findTaskInSection(client, sectionId, taskName)
+            let existingTaskId = 0
+            try {
+                await client.tasks.getTasksForSection(sectionId, {opt_pretty: true
+                }).then((result) => {
+                    if (result.data.length === 0) { 
+                        console.log("There are no tasks in the section")
+                        existingTaskId = 0
+                     } else {
+                        const task = result.data.find(task => task.name === name);
+                        if (!task){
+                            console.log("Task not found")
+                            existingTaskId = 0
+                        } else {
+                            console.info('Task found task', task);
+                            existingTaskId = task.gid
+                        }
+                     }    
+                });
+            } catch (error) {
+                console.error('rejecting promise', error);
+            }
+
             console.log(`task found with id ${existingTaskId}`)
             if (existingTaskId > 0){
                 core.setOutput('taskId', existingTaskId)
