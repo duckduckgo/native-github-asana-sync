@@ -232,6 +232,7 @@ async function getLatestRepositoryRelease(){
 
 async function findTaskInSection(client, sectionId, name) {
     try {
+        console.log('finding tasks in section', sectionId);
         await client.tasks.getTasksForSection(sectionId).then((result) => {
             const task = result.data.find(task => task.name === name);
             if (!task){
