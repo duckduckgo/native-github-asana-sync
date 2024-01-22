@@ -269,7 +269,7 @@ async function createTask(client, name, description, projectId) {
 }
 
 async function createTaskInSection(client, name, description, projectId, sectionId) {
-    console.log('creating new task in section', name);
+    console.log('creating new task in section', sectionId);
     let createdTaskId = "0"
     try {
         await client.tasks.createTask({name: name, 
@@ -280,7 +280,7 @@ async function createTaskInSection(client, name, description, projectId, section
             .then((result) => {
                 createdTaskId = result.gid
                 console.log('task created in section', createdTaskId);
-                core.setOutput('taskId', existingTaskId)
+                core.setOutput('taskId', createdTaskId)
                 core.setOutput('duplicate', false)
             })
     } catch (error) {
