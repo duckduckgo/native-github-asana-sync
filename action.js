@@ -256,7 +256,7 @@ async function findTaskInSection(client, sectionId, name) {
 async function createAsanaTask(){
     const 
         projectId = core.getInput('asana-project', {required: true}),
-        sectionId = sectionId = core.getInput('asana-section'),
+        sectionId = core.getInput('asana-section'),
         taskName = core.getInput('asana-task-name', {required: true}),
         taskDescription = core.getInput('asana-task-description', {required: true});
 
