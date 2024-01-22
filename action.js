@@ -300,6 +300,7 @@ async function createAsanaTask(){
                      }    
                 });
             } catch (error) {
+                console.info('errors', error);
                 console.error('rejecting promise', error);
             }
 
@@ -322,6 +323,7 @@ async function createAsanaTask(){
                 core.setOutput('duplicate', true)
             }
         } catch (error) {
+            console.info('errors', error);
             console.error('rejecting promise', error);
         }
     }            
