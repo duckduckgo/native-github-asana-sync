@@ -288,7 +288,7 @@ async function createTaskInSection(client, name, description, projectId, section
 }
 
 async function createOrUpdateTask(client, name, description, projectId, sectionId) {
-    const existingTaskId = await findTaskInSection(client, sectionId, name)
+    let existingTaskId = await findTaskInSection(client, sectionId, name)
     if (existingTaskId = "0") {
         return createTaskInSection(client, name, description, projectId, sectionId)
     } else {
