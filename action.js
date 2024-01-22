@@ -274,7 +274,7 @@ async function createAsanaTask(){
                 const taskId = response.gid
                 console.log(`task created with id ${taskId}`)
                 core.setOutput('taskId', taskId)
-                core.setOutput('updated', false)
+                core.setOutput('duplicate', false)
             });
         } catch (error) {
             console.error('rejecting promise', error);
@@ -289,14 +289,12 @@ async function createAsanaTask(){
                 }).then((result) => {
                     if (result.data.length === 0) { 
                         console.log("There are no tasks in the section")
-                        existingTaskId = 0
                      } else {
                         const task = result.data.find(task => task.name === name);
                         if (!task){
                             console.log("Task not found")
-                            existingTaskId = 0
                         } else {
-                            console.info('Task found task', task);
+                            console.info('Task found with id', task);
                             existingTaskId = task.gid
                         }
                      }    
@@ -305,11 +303,8 @@ async function createAsanaTask(){
                 console.error('rejecting promise', error);
             }
 
-            console.log(`task found with id ${existingTaskId}`)
-            if (existingTaskId > 0){
-                core.setOutput('taskId', existingTaskId)
-                core.setOutput('duplicate', true)
-            } else {
+            if (existingTaskId == 0){
+                console.info('creating asana task', projectId);     
                 await client.tasks.create({            
                     projects: [projectId],
                     memberships: [{project: projectId, section: sectionId}],
@@ -322,9 +317,12 @@ async function createAsanaTask(){
                     core.setOutput('taskId', taskId)
                     core.setOutput('duplicate', false)
                 });
+            } else {
+                core.setOutput('taskId', existingTaskId)
+                core.setOutput('duplicate', true)
             }
         } catch (error) {
-            console.error('rejecting promise', error);createTask
+            console.error('rejecting promise', error);
         }
     }            
 }
