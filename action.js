@@ -284,7 +284,8 @@ async function createAsanaTask(){
             console.info('creating asana task, checking first if task already exists', taskName);
             let existingTaskId = 0
             try {
-                await client.tasks.getTasksForSection(sectionId, {opt_pretty: true
+                await client.tasks.getTasksForSection({
+                    sectionGid: sectionId
                 }).then((result) => {
                     if (result.data.length === 0) { 
                         console.log("There are no tasks in the section")
