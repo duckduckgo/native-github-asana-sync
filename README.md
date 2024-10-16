@@ -45,7 +45,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: duckduckgo/native-github-asana-sync@v1.0
+      - uses: duckduckgo/native-github-asana-sync@v1.1
         with:
           asana-pat: 'Your PAT'
           asana-project: 'Asana Project Id'
@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update Asana task -> PR approved
-      - uses: duckduckgo/native-github-asana-sync@v1.0
+      - uses: duckduckgo/native-github-asana-sync@v1.1
         with:
           asana-pat: 'Your PAT'
           trigger-phrase: 'Your Trigger Phrase'
@@ -91,7 +91,7 @@ jobs:
   add-pr-merged-comment:
     runs-on: ubuntu-latest
     steps:
-      - uses: duckduckgo/native-github-asana-sync@v1.0
+      - uses: duckduckgo/native-github-asana-sync@v1.1
         if: github.event.pull_request.merged
         with:
           asana-pat: 'Your PAT'
@@ -123,7 +123,7 @@ jobs:
     steps:
       - name: Checking Pull Request sender membership
         id: step1
-        uses: duckduckgo/native-github-asana-sync@v1.0
+        uses: duckduckgo/native-github-asana-sync@v1.1
         with:
           github-pat: 'Your Github PAT'
           action: 'check-pr-membership'
@@ -153,7 +153,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Add comment in Asana task
-        uses: duckduckgo/native-github-asana-sync@v1.0
+        uses: duckduckgo/native-github-asana-sync@v1.1
         with:
           asana-pat: 'Your PAT'
           trigger-phrase: 'Your Trigger Phrase'
@@ -180,7 +180,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Add Asana task to Project
-        uses: duckduckgo/native-github-asana-sync@v1.0
+        uses: duckduckgo/native-github-asana-sync@v1.1
         with:
           trigger-phrase: 'Your Trigger Phrase'
           asana-project: 'Asana Project Id'
@@ -206,7 +206,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Create Asana task in Asana Project
-        uses: duckduckgo/native-github-asana-sync@v1.0
+        uses: duckduckgo/native-github-asana-sync@v1.1
         with:          
           asana-project: 'Asana Project Id'
           action: 'create-asana-pr-task'
@@ -235,7 +235,7 @@ jobs:
     steps:
       - name: Find latest release of content scope scripts
         id: latest-release
-        uses: duckduckgo/native-github-asana-sync@v1.0
+        uses: duckduckgo/native-github-asana-sync@v1.1
         with:
           github-pat: 'Your Github PAT'
           github-repository: 'Github Repository'
@@ -268,7 +268,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Create Asana task in Asana Project
-        uses: duckduckgo/native-github-asana-sync@v1.0
+        uses: duckduckgo/native-github-asana-sync@v1.1
         with:          
           asana-project: 'Asana Project Id'
           asana-section: 'Asana Section Id'
