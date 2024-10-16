@@ -66,10 +66,11 @@ on:
 
 jobs:
   pr-reviewed:
+    if: github.event.review.state == 'approved'
     runs-on: ubuntu-latest
     steps:
       - name: Update Asana task -> PR approved
-      - uses: duckduckgo/native-github-asana-sync@v1.1
+        uses: duckduckgo/native-github-asana-sync@v1.1
         with:
           asana-pat: 'Your PAT'
           trigger-phrase: 'Your Trigger Phrase'
