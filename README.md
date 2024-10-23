@@ -255,6 +255,8 @@ The Asana section ID in the Asana Project
 **Required** Name of the Asana task
 ### `asana-task-description`
 **Required** Description of the Asana task
+### `asana-tag`
+ID of Asana tag to be added to the task i.e. https://app.asana.com/0/1208613272217946/
 
 #### Example Usage
 
@@ -274,5 +276,6 @@ jobs:
           asana-section: 'Asana Section Id'
           asana-task-name: 'Asana Task Name'
           asana-task-description: 'Asana Task Description'
+          asana-tag: 'Tag Id'
           action: 'create-asana-task'
 ```
