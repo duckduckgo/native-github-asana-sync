@@ -22,6 +22,9 @@ inputs:
   asana-task-description:
     description: 'Description of the Asana task you want to create.'
     required: false
+  asana-tag:
+    description: 'Tag to be added to the Asana task.'
+    required: false
   trigger-phrase:
     description: 'Prefix used to identify Asana tasks (URL).'
     required: false
