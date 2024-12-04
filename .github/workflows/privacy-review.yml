@@ -1,0 +1,56 @@
+name: Start Privacy Review
+on:
+  workflow_call:
+    inputs:
+      team_name:
+        required: true
+        type: string
+      ref:
+        required: false
+        type: string
+    secrets:
+      asana_pat:
+        required: true
+      github_pat:
+        required: true
+
+jobs:
+  start-privacy-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout actions repo # required so we can reference the actions locally
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          path: actions
+          repository: duckduckgo/native-github-asana-sync
+
+      - name: Get PR author Asana ID
+        uses: ./actions
+        id: get-author-asana-id
+        with:
+          github-pat: ${{ secrets.github_pat }}
+          action: 'get-asana-user-id'
+
+      - name: Create Privacy Review task
+        uses: ./actions
+        id: create-review-task
+        with:
+          asana-pat: ${{ secrets.asana_pat }}
+          asana-project: '69071770703008'
+          asana-tags: '1208613272217946'
+          asana-collaborators: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
+          asana-task-name: 'Privacy Triage: ${{ inputs.team_name }} - ${{ github.event.pull_request.title }}'
+          asana-task-description: 'PR: ${{ github.event.pull_request.html_url }}/files?file-filters[]=.json&file-filters[]=.json5'
+          action: 'create-asana-task'
+
+      - name: Add Privacy Review task to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Privacy Review task: https://app.asana.com/0/69071770703008/${{steps.create-review-task.outputs.taskId}}'
+            })
