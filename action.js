@@ -2,6 +2,7 @@ const core = require('@actions/core');
 const github = require('@actions/github');
 const octokit = require('@octokit/core');
 const asana = require('asana');
+const yaml = require('js-yaml');
 
 function buildAsanaClient() {
     const ASANA_PAT = core.getInput('asana-pat');
@@ -15,6 +16,10 @@ function buildGithubClient(githubPAT){
     return new octokit.Octokit({
         auth: githubPAT
       })
+}
+
+function getArrayFromInput(input) {
+    return input ? input.split(',') : [];
 }
 
 function findAsanaTasks(){
@@ -227,7 +232,6 @@ async function getLatestRepositoryRelease(){
         console.log(REPO, `can't find latest version ${error}`)
         core.setFailed(`can't find latest version for ${REPO}`);
     }
-
 }
 
 async function findTaskInSection(client, sectionId, name) {
@@ -250,11 +254,13 @@ async function findTaskInSection(client, sectionId, name) {
     return existingTaskId
 }
 
-async function createTask(client, name, description, projectId, sectionId = '', tag = '') {
+async function createTask(client, name, description, projectId, sectionId = '', tags = [], collaborators = []) {
     const taskOpts = {
         name: name, 
         notes: description, 
         projects: [projectId],
+        tags,
+        followers: collaborators,
         pretty: true
     };
 
@@ -271,10 +277,7 @@ async function createTask(client, name, description, projectId, sectionId = '', 
         taskOpts.memberships = [{project: projectId, section: sectionId}];
     }
 
-    if (tag != '')
-        taskOpts.tags = [tag];
-
-    console.log(`creating new task with section='${sectionId}' and tag='${tag}'`);
+    console.log(`creating new task with options:='${JSON.stringify(taskOpts)}'`);
     let createdTaskId = "0"
     try {
         await client.tasks.createTask(taskOpts)
@@ -298,9 +301,10 @@ async function createAsanaTask(){
         sectionId = core.getInput('asana-section'),
         taskName = core.getInput('asana-task-name', {required: true}),
         taskDescription = core.getInput('asana-task-description', {required: true}),
-        tag = core.getInput('asana-tag');
+        tags = getArrayFromInput(core.getInput('asana-tags')),
+        collaborators = getArrayFromInput(core.getInput('asana-collaborators'));
 
-    return createTask(client, taskName, taskDescription, projectId, sectionId, tag); 
+    return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators); 
 }
 
 async function addTaskPRDescription(){
@@ -339,6 +343,36 @@ async function addTaskPRDescription(){
         
             });
       
+}
+
+async function getAsanaUserID() {
+    const 
+    ghUsername = core.getInput('github-username') || github.context.payload.pull_request.user.login,
+    GITHUB_PAT = core.getInput('github-pat', {required: true}),
+    githubClient = buildGithubClient(GITHUB_PAT),
+    ORG = 'duckduckgo',
+    REPO = 'internal-github-asana-utils';
+    
+    console.log(`Looking up Asana user ID for ${ghUsername}`);
+    try {
+        await githubClient.request('GET /repos/{owner}/{repo}/contents/user_map.yml', {
+            owner: ORG,
+            repo: REPO,
+            headers: {
+                'X-GitHub-Api-Version': '2022-11-28',
+                'Accept': 'application/vnd.github.raw+json'
+            }
+        }).then((response) => {
+            const userMap = yaml.load(response.data);
+            if (ghUsername in userMap) {
+                core.setOutput('asanaUserId', userMap[ghUsername]);
+            } else {
+                core.setFailed(`User ${ghUsername} not found in user map`);
+            }
+        });
+    } catch (error) {
+        core.setFailed(error);
+    }
 }
 
 async function action() {
@@ -384,6 +418,10 @@ async function action() {
         }
         case 'add-task-pr-description': {
             addTaskPRDescription();
+            break;
+        }
+        case 'get-asana-user-id': {
+            getAsanaUserID();
             break;
         }
         default:

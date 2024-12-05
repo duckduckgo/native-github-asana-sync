@@ -256,8 +256,11 @@ The Asana section ID in the Asana Project
 **Required** Name of the Asana task
 ### `asana-task-description`
 **Required** Description of the Asana task
-### `asana-tag`
-ID of Asana tag to be added to the task i.e. https://app.asana.com/0/1208613272217946/
+### `asana-tags`
+Comma-separated IDs of Asana tags to be added to the task i.e. https://app.asana.com/0/1208613272217946/
+### `asana-collaborators`
+Comma-separated Asana user IDs to be added as collaborators to the task
+* Note: you can use https://app.asana.com/api/1.0/users/me to find your ID. Replace `me` with an email to find someone else's
 
 #### Example Usage
 
@@ -280,3 +283,41 @@ jobs:
           asana-tag: 'Tag Id'
           action: 'create-asana-task'
 ```
+
+### Get Asana user ID
+Returns Asana user ID for a provided Github username
+
+### `github-pat`
+**Required** Github public access token
+### `github-username`
+Github user to lookup; PR author by default
+
+#### Example Usage
+
+```yaml
+on:
+  pull_request:
+    types: [ labeled ]
+
+jobs:
+  test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR author Asana ID
+        uses: ./actions
+        id: get-author-asana-id
+        with:
+          github-pat: ${{ secrets.github_pat }}
+          action: 'get-asana-user-id'
+
+      - name: Use Asana ID from above step
+        with:
+          asana-collaborators: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
+```
+
+## Building
+Run once: `npm i -g @vercel/ncc`
+
+Run before pushing changes: `ncc build index.js`
+
+More info: https://docs.github.com/en/actions/sharing-automations/creating-actions/creating-a-javascript-action#commit-tag-and-push-your-action-to-github

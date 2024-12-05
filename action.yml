@@ -22,8 +22,11 @@ inputs:
   asana-task-description:
     description: 'Description of the Asana task you want to create.'
     required: false
-  asana-tag:
-    description: 'Tag to be added to the Asana task.'
+  asana-tags:
+    description: 'Comma-separated tags to be added to the Asana task.'
+    required: false
+  asana-collaborators:
+    description: 'Comma-separated Asana user IDs or emails of users to be added as followers.'
     required: false
   trigger-phrase:
     description: 'Prefix used to identify Asana tasks (URL).'
@@ -34,7 +37,10 @@ inputs:
   github-org:
     description: 'Github Organisation where the repository is hosted, to check for the latest release.'
     required: false
+  github-username:
+    description: 'Github Username.'
+    required: false
     
 runs:
   using: 'node20'
-  main: 'index.js'
+  main: 'dist/index.js'
