@@ -19,6 +19,14 @@ inputs:
   asana-task-name:
     description: 'Name of the Asana task you want to create.'
     required: false
+  asana-task-id:
+    description: 'Id of the Asana task you want to interact with.'
+    required: false
+  asana-task-comment:
+    description: 'Comment to be added to an Asana task.'
+  asana-task-comment-pinned:
+    description: 'Identifies if a comment in an Asana task needs to be pinned or not.'
+    required: false
   asana-task-description:
     description: 'Description of the Asana task you want to create.'
     required: false
@@ -39,6 +47,9 @@ inputs:
     required: false
   github-username:
     description: 'Github Username.'
+    required: false
+  pr-review-state:
+    description: 'State of the Pull Request Review [approved | changes_requested | commented].'
     required: false
     
 runs:

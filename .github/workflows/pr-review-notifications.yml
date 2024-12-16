@@ -1,0 +1,67 @@
+name: Start Privacy Review
+on:
+  workflow_call:
+    inputs:
+      trigger-phrase:
+        required: true
+        type: string
+      pr-review-state:
+        required: true
+        type: string
+    secrets:
+      asana_pat:
+        required: true
+
+jobs:
+  pr-reviewed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout actions repo # required so we can reference the actions locally
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          path: actions
+          repository: duckduckgo/native-github-asana-sync
+
+      - name: Find Asana Task in PR description
+        uses: ./actions
+        id: find-asana-task-id
+        with:
+          action: 'find-asana-task-id'
+          trigger-phrase: "Task/Issue URL:"
+
+      - name: Add Approved Comment to Asana Task
+        if: ${{ github.event.review.state }} == 'approved'
+        uses: ./actions
+        id: post-comment-pr-approved
+        with:
+          action: 'post-comment-asana-task'
+          asanta-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
+          asanta-task-comment: 'PR: ${{ github.event.pull_request.number }} has been approved.'
+
+      - name: Add Changes Requested Comment to Asana Task
+        if: ${{ github.event.review.state }} == 'changes_requested'
+        uses: ./actions
+        id: post-comment-pr-changes-requested
+        with:
+          action: 'post-comment-asana-task'
+          asanta-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
+          asanta-task-comment: 'PR: ${{ github.event.pull_request.number }} has changed requested.'
+
+      - name: Add Dismissed Comment to Asana Task
+        if: ${{ github.event.review.state }} == 'dismissed'
+        uses: ./actions
+        id: post-comment-pr-dismissed
+        with:
+          action: 'post-comment-asana-task'
+          asanta-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
+          asanta-task-comment: 'PR: ${{ github.event.pull_request.number }} has been dismissed.'
+
+      - name: Add Review Comment to Asana Task
+        if: ${{ github.event.review.state }} == 'commented'
+        uses: ./actions
+        id: post-comment-pr-reviewed
+        with:
+          action: 'post-comment-asana-task'
+          asanta-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
+          asanta-task-comment: 'PR: ${{ github.event.pull_request.number }} has been reviewed.'
