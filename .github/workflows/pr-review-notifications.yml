@@ -1,11 +1,8 @@
-name: Start Privacy Review
+name: Pull Request Review Submitted
 on:
   workflow_call:
     inputs:
       trigger-phrase:
-        required: true
-        type: string
-      pr-review-state:
         required: true
         type: string
     secrets:
@@ -31,7 +28,7 @@ jobs:
           trigger-phrase: "Task/Issue URL:"
 
       - name: Add Approved Comment to Asana Task
-        if: ${{ github.event.review.state }} == 'approved'
+        if: github.event.review.state == 'approved'      
         uses: ./actions
         id: post-comment-pr-approved
         with:
@@ -40,7 +37,7 @@ jobs:
           asanta-task-comment: 'PR: ${{ github.event.pull_request.html_url }} has been approved.'
 
       - name: Add Changes Requested Comment to Asana Task
-        if: ${{ github.event.review.state }} == 'changes_requested'
+        if: github.event.review.state == 'changes_requested'
         uses: ./actions
         id: post-comment-pr-changes-requested
         with:
@@ -49,7 +46,7 @@ jobs:
           asanta-task-comment: 'PR: ${{ github.event.pull_request.html_url }} has changed requested.'
 
       - name: Add Dismissed Comment to Asana Task
-        if: ${{ github.event.review.state }} == 'dismissed'
+        if: github.event.review.state == 'dismissed'
         uses: ./actions
         id: post-comment-pr-dismissed
         with:
@@ -58,7 +55,7 @@ jobs:
           asanta-task-comment: 'PR: ${{ github.event.pull_request.html_url }} has been dismissed.'
 
       - name: Add Review Comment to Asana Task
-        if: ${{ github.event.review.state }} == 'commented'
+        if: github.event.review.state == 'commented'
         uses: ./actions
         id: post-comment-pr-reviewed
         with:
