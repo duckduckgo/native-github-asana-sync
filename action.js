@@ -379,7 +379,7 @@ async function findAsanaTaskId(){
     const foundTasks = findAsanaTasks()
 
     if (foundTasks.length > 0) {
-        core.setOutput('asanaTaskId', foundTasks);
+        core.setOutput('asanaTaskId', foundTasks[0]);
     } else {
         core.setFailed(`Can't find an Asana task with the expected prefix`);
     }
