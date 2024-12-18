@@ -375,6 +375,33 @@ async function getAsanaUserID() {
     }
 }
 
+async function findAsanaTaskId(){
+    const foundTasks = findAsanaTasks()
+
+    if (foundTasks.length > 0) {
+        core.setOutput('asanaTaskId', foundTasks);
+    } else {
+        core.setFailed(`Can't find an Asana task with the expected prefix`);
+    }
+}
+
+async function postCommentAsanaTask(){
+    const client = await buildAsanaClient();
+
+    const
+        TASK_ID = core.getInput('asana-task-id'),
+        TASK_COMMENT = core.getInput('asana-task-comment')
+        IS_PINNED = core.getInput('asana-task-comment-pinned')
+
+    const comment = createStory(client, TASK_ID, TASK_COMMENT, IS_PINNED)
+    if (comment != null){
+        console.info('Comment added to Asana task');
+    } else {
+        core.setFailed(`Can't post comment in Asana task`);
+    }
+   
+}
+
 async function action() {
     const ACTION = core.getInput('action', {required: true});
     console.info('calling', ACTION);
@@ -422,6 +449,14 @@ async function action() {
         }
         case 'get-asana-user-id': {
             getAsanaUserID();
+            break;
+        }
+        case 'find-asana-task-id': {
+            findAsanaTaskId();
+            break;
+        }
+        case 'post-comment-asana-task': {
+            postCommentAsanaTask();
             break;
         }
         default:
