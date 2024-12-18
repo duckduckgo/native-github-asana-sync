@@ -16,7 +16,7 @@ jobs:
       - name: Checkout actions repo # required so we can reference the actions locally
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: david/improve-pr-notifications
           path: actions
           repository: duckduckgo/native-github-asana-sync
 
@@ -24,8 +24,8 @@ jobs:
         uses: ./actions
         id: find-asana-task-id
         with:
-          action: 'find-asana-task-id'
-          trigger-phrase: "Task/Issue URL:"
+          action: 'find-asana-task-id'          
+          trigger-phrase: ${{ inputs.trigger-phrase }}
 
       - name: Add Approved Comment to Asana Task
         if: github.event.review.state == 'approved'      
