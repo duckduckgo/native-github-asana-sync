@@ -6,7 +6,7 @@ on:
         required: true
         type: string
     secrets:
-      asana_pat:
+      asana-pat:
         required: true
 
 jobs:
@@ -33,6 +33,7 @@ jobs:
         id: post-comment-pr-approved
         with:
           action: 'post-comment-asana-task'
+          asana-pat: ${{ secrets.asana-pat }}
           asanta-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
           asanta-task-comment: 'PR: ${{ github.event.pull_request.html_url }} has been approved.'
 
@@ -42,6 +43,7 @@ jobs:
         id: post-comment-pr-changes-requested
         with:
           action: 'post-comment-asana-task'
+          asana-pat: ${{ secrets.asana-pat }}
           asanta-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
           asanta-task-comment: 'PR: ${{ github.event.pull_request.html_url }} has changed requested.'
 
@@ -51,6 +53,7 @@ jobs:
         id: post-comment-pr-dismissed
         with:
           action: 'post-comment-asana-task'
+          asana-pat: ${{ secrets.asana-pat }}
           asanta-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
           asanta-task-comment: 'PR: ${{ github.event.pull_request.html_url }} has been dismissed.'
 
@@ -60,5 +63,7 @@ jobs:
         id: post-comment-pr-reviewed
         with:
           action: 'post-comment-asana-task'
+          asana-pat: ${{ secrets.asana-pat }}
           asanta-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
           asanta-task-comment: 'PR: ${{ github.event.pull_request.html_url }} has been reviewed.'
+          asanta-task-comment-pinned: 'PR: ${{ github.event.pull_request.html_url }} has been reviewed.'
