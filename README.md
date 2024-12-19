@@ -27,6 +27,9 @@ This action integrates asana with github.
 * `create-asana-pr-task` to create a task in Asana based on the Github Pull Request 
 * `get-latest-repo-release` to find the latest release version of a Github Repository
 * `create-asana-task` to create a task in Asana 
+* `get-asana-user-id` to return the Asana User Id of a given Github actor
+* `find-asana-task-id` searches in the PR description for an Asana Task, given a prefix
+* `post-comment-asana-task` to post a comment in an Asana task
 
 ### Create Asana task from Github Issue
 When a Github Issue has been added, it will create an Asana task with the Issue title, description and link.
@@ -313,6 +316,70 @@ jobs:
       - name: Use Asana ID from above step
         with:
           asana-collaborators: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
+```
+
+### Find Asana task Id in PR description
+Searches for an Asana URL in the PR description, given a prefix. Returns the Asana Task Id if found.
+
+### `trigger-phrase`
+**Required** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/.
+
+#### Example Usage
+
+```yaml
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find Asana Task in PR description
+        uses: ./actions
+        id: find-asana-task-id
+        with:
+          action: 'find-asana-task-id'          
+          trigger-phrase: 'Task/Issue URL:'
+
+      - name: Use Asana Task ID from above step
+        with:
+          asana-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
+```
+
+### Post comment in Asana task
+Posts a comment in a given Asana Task
+
+### `asana-pat`
+**Required** Asana public access token
+### `asana-task-id`
+**Required** Id of the task to write the comment on.
+### `asana-task-comment`
+**Required** Comment to be posted.
+### `asana-task-comment-pinned`
+**Required** Is the comment pinned or not.
+
+#### Example Usage
+
+```yaml
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add Approved Comment to Asana Task
+        if: github.event.review.state == 'approved'      
+        uses: ./actions
+        id: post-comment-pr-approved
+        with:
+          action: 'post-comment-asana-task'
+          asana-pat: ${{ secrets.asana_pat }}
+          asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
+          asana-task-comment: 'PR: ${{ github.event.pull_request.html_url }} has been approved.'
+          asana-task-comment-pinned: true
 ```
 
 ## Building
