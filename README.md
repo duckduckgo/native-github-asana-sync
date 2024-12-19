@@ -344,7 +344,7 @@ jobs:
 
       - name: Use Asana Task ID from above step
         with:
-          asana-collaborators: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
+          asana-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
 ```
 
 ### Post comment in Asana task
