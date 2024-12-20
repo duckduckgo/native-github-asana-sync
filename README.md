@@ -382,6 +382,41 @@ jobs:
           asana-task-comment-pinned: true
 ```
 
+### Send a message in Mattermost
+Sends a message to Mattermost
+
+### `mattermost-token`
+**Required** Token to use for the Mattermost connection.
+### `mattermost-team-id`
+**Required** Team ID to use for the Mattermost connection.
+### `mattermost-message`
+**Required** Message to send.
+### `mattermost-channel-name`
+**Required** Name of the channel to send the message to.
+
+#### Example Usage
+
+```yaml
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send test message
+        id: send-test-message
+        uses: duckduckgo/native-github-asana-sync@david/mattermost_action
+        with:
+          mattermost-token: ${{ env.MM_AUTH_TOKEN }}
+          mattermost-team-id: ${{ env.MM_TEAM_ID }}
+          mattermost-channel-name: 'channel'
+          mattermost-message: ${{env.emoji_start}}'" Android Release ${{ env.APP_VERSION }} started by @${{ github.actor }}. https://github.com/duckduckgo/Android/actions/runs/${{ github.run_id }}
+          action: 'send-mattermost-message'
+          
+```
+
 ## Building
 Run once: `npm i -g @vercel/ncc`
 
