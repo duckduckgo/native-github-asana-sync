@@ -3,6 +3,7 @@ const github = require('@actions/github');
 const octokit = require('@octokit/core');
 const asana = require('asana');
 const yaml = require('js-yaml');
+const { Client4 } = require('@mattermost/client');
 
 function buildAsanaClient() {
     const ASANA_PAT = core.getInput('asana-pat');
@@ -16,6 +17,14 @@ function buildGithubClient(githubPAT){
     return new octokit.Octokit({
         auth: githubPAT
       })
+}
+
+function buildMattermostClient(){
+    const MATTERMOST_TOKEN = core.getInput('mattermost-token');
+    const MATTERMOST_URL = core.getInput('mattermost-url');
+
+    Client4.setUrl(MATTERMOST_URL);
+    Client4.setToken(MATTERMOST_TOKEN);
 }
 
 function getArrayFromInput(input) {
@@ -402,6 +411,47 @@ async function postCommentAsanaTask(){
    
 }
 
+async function getChannelIdByName(channelName, teamId) {
+    try {
+        const channels = await Client4.getChannelsForTeam(teamId);
+        const channel = channels.find(c => c.display_name === channelName);
+        return channel ? channel.id : null;
+    } catch (error) {
+        console.error('Error fetching channels:', error);
+        process.exit(1);
+    }
+}
+
+async function sendMattermostMessage(){
+    buildMattermostClient();
+
+    const
+        CHANNEL_NAME = core.getInput('mattermost-channel-name'),
+        TEAM_ID = core.getInput('mattermost-team-id'),
+        MESSAGE = core.getInput('mattermost-message')
+
+    const channelId = await getChannelIdByName(CHANNEL_NAME, TEAM_ID);
+    if (channelId) {
+        await sendMessage(channelId, MESSAGE);
+    } else {
+        console.error(`Channel "${channelName}" not found.`);
+        process.exit(1);
+    }
+}
+
+async function sendMessage(channelId, message) {
+    try {
+        const response = await Client4.createPost({
+            channel_id: channelId,
+            message: message,
+        });
+        console.log('Message sent:', response);
+    } catch (error) {
+        console.error('Error sending message:', error);
+        process.exit(1);
+    }
+}
+
 async function action() {
     const ACTION = core.getInput('action', {required: true});
     console.info('calling', ACTION);
@@ -457,6 +507,10 @@ async function action() {
         }
         case 'post-comment-asana-task': {
             postCommentAsanaTask();
+            break;
+        }
+        case 'send-mattermost-message': {
+            sendMattermostMessage();
             break;
         }
         default:
