@@ -414,15 +414,6 @@ async function postCommentAsanaTask(){
    
 }
 
-async function getChannelIdByName(client, channelName, teamId) {
-    try {
-        return await client.getChannelByName(teamId, channelName);
-    } catch (error) {
-        console.error('Error fetching channels:', error);
-        process.exit(1);
-    }
-}
-
 async function sendMessage(client, channelId, message) {
     try {
         const response = await client.createPost({
@@ -444,15 +435,16 @@ async function sendMattermostMessage(){
 
     const client = buildMattermostClient()
 
-    const channel = await getChannelIdByName(client, CHANNEL_NAME, TEAM_ID);
+    const channel = await client.getChannelByName(TEAM_ID, CHANNEL_NAME);
     if (channel) {
+        console.log(`Channel "${channel.id}" found.`);
         await sendMessage(client, channel.id, MESSAGE);
     } else {
+        console.log(`Channel "${CHANNEL_NAME}" not found.`);
         console.error(`Channel "${CHANNEL_NAME}" not found.`);
         process.exit(1);
     }
 }
-
 
 async function action() {
     const ACTION = core.getInput('action', {required: true});
