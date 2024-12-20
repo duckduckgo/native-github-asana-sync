@@ -416,7 +416,7 @@ async function postCommentAsanaTask(){
 
 async function getChannelIdByName(client, channelName, teamId) {
     try {
-        const channels = await client.getChannelByName(channelName);
+        const channels = await client.getChannelByName(teamId, channelName);
         const channel = channels.find(c => c.display_name === channelName);
         return channel ? channel.id : null;
     } catch (error) {
