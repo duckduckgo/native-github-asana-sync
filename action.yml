@@ -51,6 +51,18 @@ inputs:
   pr-review-state:
     description: 'State of the Pull Request Review [approved | changes_requested | commented].'
     required: false
+  mattermost-channel-name:
+    description: 'Name of the Mattermost channel to send a message to.'
+    required: false
+  mattermost-message:
+    description: 'Message to send in Mattermost.'
+    required: false    
+  mattermost-team-id:
+    description: 'Id of team to use in Mattermost.'
+    required: false   
+  mattermost-token:
+    description: 'Token to use for the Mattermost connection.'
+    required: false 
     
 runs:
   using: 'node20'
