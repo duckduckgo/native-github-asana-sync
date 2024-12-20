@@ -21,10 +21,13 @@ function buildGithubClient(githubPAT){
 
 function buildMattermostClient(){
     const MATTERMOST_TOKEN = core.getInput('mattermost-token');
-    const MATTERMOST_URL = core.getInput('mattermost-url');
+    const MATTERMOST_URL = 'https://chat.duckduckgo.com';
 
-    Client4.setUrl(MATTERMOST_URL);
-    Client4.setToken(MATTERMOST_TOKEN);
+    const client = new Client4();
+    client.setUrl(MATTERMOST_TOKEN);
+    client.setToken(MATTERMOST_URL);
+
+    return client
 }
 
 function getArrayFromInput(input) {
@@ -411,9 +414,9 @@ async function postCommentAsanaTask(){
    
 }
 
-async function getChannelIdByName(channelName, teamId) {
+async function getChannelIdByName(client, channelName, teamId) {
     try {
-        const channels = await Client4.getChannelsForTeam(teamId);
+        const channels = await client.getChannelByName(teamId);
         const channel = channels.find(c => c.display_name === channelName);
         return channel ? channel.id : null;
     } catch (error) {
@@ -422,26 +425,9 @@ async function getChannelIdByName(channelName, teamId) {
     }
 }
 
-async function sendMattermostMessage(){
-    buildMattermostClient();
-
-    const
-        CHANNEL_NAME = core.getInput('mattermost-channel-name'),
-        TEAM_ID = core.getInput('mattermost-team-id'),
-        MESSAGE = core.getInput('mattermost-message')
-
-    const channelId = await getChannelIdByName(CHANNEL_NAME, TEAM_ID);
-    if (channelId) {
-        await sendMessage(channelId, MESSAGE);
-    } else {
-        console.error(`Channel "${channelName}" not found.`);
-        process.exit(1);
-    }
-}
-
-async function sendMessage(channelId, message) {
+async function sendMessage(client, channelId, message) {
     try {
-        const response = await Client4.createPost({
+        const response = await client.createPost({
             channel_id: channelId,
             message: message,
         });
@@ -451,6 +437,23 @@ async function sendMessage(channelId, message) {
         process.exit(1);
     }
 }
+
+async function sendMattermostMessage(){
+    const
+        CHANNEL_NAME = core.getInput('mattermost-channel-name'),    
+        MESSAGE = core.getInput('mattermost-message')
+
+    const client = buildMattermostClient()
+
+    const channelId = await getChannelIdByName(client, CHANNEL_NAME);
+    if (channelId) {
+        await sendMessage(client, channelId, MESSAGE);
+    } else {
+        console.error(`Channel "${CHANNEL_NAME}" not found.`);
+        process.exit(1);
+    }
+}
+
 
 async function action() {
     const ACTION = core.getInput('action', {required: true});
