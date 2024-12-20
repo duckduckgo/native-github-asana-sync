@@ -448,10 +448,11 @@ async function sendMattermostMessage(){
     const
         CHANNEL_NAME = core.getInput('mattermost-channel-name'),    
         MESSAGE = core.getInput('mattermost-message')
+        TEAM_ID = core.getInput('mattermost-team-id')
 
     const client = buildMattermostClient()
 
-    const channelId = await getChannelIdByName(client, CHANNEL_NAME);
+    const channelId = await getChannelIdByName(client, CHANNEL_NAME, TEAM_ID);
     if (channelId) {
         await sendMessage(client, channelId, MESSAGE);
     } else {
