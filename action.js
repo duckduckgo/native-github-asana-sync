@@ -24,8 +24,8 @@ function buildMattermostClient(){
     const MATTERMOST_URL = 'https://chat.duckduckgo.com';
 
     const client = new Client4();
-    client.setUrl(MATTERMOST_TOKEN);
-    client.setToken(MATTERMOST_URL);
+    client.setUrl(MATTERMOST_URL);
+    client.setToken(MATTERMOST_TOKEN);
 
     return client
 }
