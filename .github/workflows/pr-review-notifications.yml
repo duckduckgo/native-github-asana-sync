@@ -59,14 +59,3 @@ jobs:
           asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
           asana-task-comment: 'PR: ${{ github.event.pull_request.html_url }} review has been dismissed.'
           asana-task-comment-pinned: false
-
-      - name: Add Review Comment to Asana Task
-        if: github.event.review.state == 'commented'
-        uses: ./actions
-        id: post-comment-pr-reviewed
-        with:
-          action: 'post-comment-asana-task'
-          asana-pat: ${{ secrets.asana_pat }}
-          asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
-          asana-task-comment: 'PR: ${{ github.event.pull_request.html_url }} has been reviewed.'
-          asana-task-comment-pinned: false
