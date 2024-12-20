@@ -416,9 +416,7 @@ async function postCommentAsanaTask(){
 
 async function getChannelIdByName(client, channelName, teamId) {
     try {
-        const channel = await client.getChannelByName(teamId, channelName);
-        console.log('Channel found', channel);
-        return channel ? channel.id : null;
+        return await client.getChannelByName(teamId, channelName);
     } catch (error) {
         console.error('Error fetching channels:', error);
         process.exit(1);
@@ -446,9 +444,9 @@ async function sendMattermostMessage(){
 
     const client = buildMattermostClient()
 
-    const channelId = await getChannelIdByName(client, CHANNEL_NAME, TEAM_ID);
-    if (channelId) {
-        await sendMessage(client, channelId, MESSAGE);
+    const channel = await getChannelIdByName(client, CHANNEL_NAME, TEAM_ID);
+    if (channel) {
+        await sendMessage(client, channel.id, MESSAGE);
     } else {
         console.error(`Channel "${CHANNEL_NAME}" not found.`);
         process.exit(1);
