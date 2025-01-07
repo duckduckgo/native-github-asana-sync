@@ -407,14 +407,14 @@ jobs:
     steps:
       - name: Send test message
         id: send-test-message
-        uses: duckduckgo/native-github-asana-sync@david/mattermost_action
+        uses: duckduckgo/native-github-asana-sync@v1.5
         with:
           mattermost-token: ${{ env.MM_AUTH_TOKEN }}
           mattermost-team-id: ${{ env.MM_TEAM_ID }}
           mattermost-channel-name: 'channel'
           mattermost-message: ${{env.emoji_start}}'" Android Release ${{ env.APP_VERSION }} started by @${{ github.actor }}. https://github.com/duckduckgo/Android/actions/runs/${{ github.run_id }}
           action: 'send-mattermost-message'
-          
+
 ```
 
 ## Building

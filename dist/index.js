@@ -428,8 +428,7 @@ async function sendMessage(client, channelId, message) {
         });
         console.log('Message sent:', response);
     } catch (error) {
-        console.error('Error sending message:', error);
-        process.exit(1);
+        core.setFailed(`Error sending message`);        
     }
 }
 
@@ -445,10 +444,8 @@ async function sendMattermostMessage(){
     if (channel) {
         console.log(`Channel "${channel.id}" found.`);
         await sendMessage(client, channel.id, MESSAGE);
-    } else {
-        console.log(`Channel "${CHANNEL_NAME}" not found.`);
-        console.error(`Channel "${CHANNEL_NAME}" not found.`);
-        process.exit(1);
+    } else {            
+        core.setFailed(`Channel "${CHANNEL_NAME}" not found.`); 
     }
 }
 
