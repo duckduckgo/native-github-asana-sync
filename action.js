@@ -3,6 +3,7 @@ const github = require('@actions/github');
 const octokit = require('@octokit/core');
 const asana = require('asana');
 const yaml = require('js-yaml');
+const { Client4 } = require('@mattermost/client');
 
 function buildAsanaClient() {
     const ASANA_PAT = core.getInput('asana-pat');
@@ -16,6 +17,17 @@ function buildGithubClient(githubPAT){
     return new octokit.Octokit({
         auth: githubPAT
       })
+}
+
+function buildMattermostClient(){
+    const MATTERMOST_TOKEN = core.getInput('mattermost-token');
+    const MATTERMOST_URL = 'https://chat.duckduckgo.com';
+
+    const client = new Client4();
+    client.setUrl(MATTERMOST_URL);
+    client.setToken(MATTERMOST_TOKEN);
+
+    return client
 }
 
 function getArrayFromInput(input) {
@@ -402,6 +414,35 @@ async function postCommentAsanaTask(){
    
 }
 
+async function sendMessage(client, channelId, message) {
+    try {
+        const response = await client.createPost({
+            channel_id: channelId,
+            message: message,
+        });
+        console.log('Message sent:', response);
+    } catch (error) {
+        core.setFailed(`Error sending message`);        
+    }
+}
+
+async function sendMattermostMessage(){
+    const
+        CHANNEL_NAME = core.getInput('mattermost-channel-name'),    
+        MESSAGE = core.getInput('mattermost-message')
+        TEAM_ID = core.getInput('mattermost-team-id')
+
+    const client = buildMattermostClient()
+
+    const channel = await client.getChannelByName(TEAM_ID, CHANNEL_NAME);
+    if (channel) {
+        console.log(`Channel "${channel.id}" found.`);
+        await sendMessage(client, channel.id, MESSAGE);
+    } else {            
+        core.setFailed(`Channel "${CHANNEL_NAME}" not found.`); 
+    }
+}
+
 async function action() {
     const ACTION = core.getInput('action', {required: true});
     console.info('calling', ACTION);
@@ -457,6 +498,10 @@ async function action() {
         }
         case 'post-comment-asana-task': {
             postCommentAsanaTask();
+            break;
+        }
+        case 'send-mattermost-message': {
+            sendMattermostMessage();
             break;
         }
         default:

@@ -9,6 +9,7 @@ const github = __nccwpck_require__(92444);
 const octokit = __nccwpck_require__(76281);
 const asana = __nccwpck_require__(70186);
 const yaml = __nccwpck_require__(91097);
+const { Client4 } = __nccwpck_require__(7512);
 
 function buildAsanaClient() {
     const ASANA_PAT = core.getInput('asana-pat');
@@ -22,6 +23,17 @@ function buildGithubClient(githubPAT){
     return new octokit.Octokit({
         auth: githubPAT
       })
+}
+
+function buildMattermostClient(){
+    const MATTERMOST_TOKEN = core.getInput('mattermost-token');
+    const MATTERMOST_URL = 'https://chat.duckduckgo.com';
+
+    const client = new Client4();
+    client.setUrl(MATTERMOST_URL);
+    client.setToken(MATTERMOST_TOKEN);
+
+    return client
 }
 
 function getArrayFromInput(input) {
@@ -408,6 +420,35 @@ async function postCommentAsanaTask(){
    
 }
 
+async function sendMessage(client, channelId, message) {
+    try {
+        const response = await client.createPost({
+            channel_id: channelId,
+            message: message,
+        });
+        console.log('Message sent:', response);
+    } catch (error) {
+        core.setFailed(`Error sending message`);        
+    }
+}
+
+async function sendMattermostMessage(){
+    const
+        CHANNEL_NAME = core.getInput('mattermost-channel-name'),    
+        MESSAGE = core.getInput('mattermost-message')
+        TEAM_ID = core.getInput('mattermost-team-id')
+
+    const client = buildMattermostClient()
+
+    const channel = await client.getChannelByName(TEAM_ID, CHANNEL_NAME);
+    if (channel) {
+        console.log(`Channel "${channel.id}" found.`);
+        await sendMessage(client, channel.id, MESSAGE);
+    } else {            
+        core.setFailed(`Channel "${CHANNEL_NAME}" not found.`); 
+    }
+}
+
 async function action() {
     const ACTION = core.getInput('action', {required: true});
     console.info('calling', ACTION);
@@ -463,6 +504,10 @@ async function action() {
         }
         case 'post-comment-asana-task': {
             postCommentAsanaTask();
+            break;
+        }
+        case 'send-mattermost-message': {
+            sendMattermostMessage();
             break;
         }
         default:
@@ -5334,6 +5379,3248 @@ function parseParams (str) {
 }
 
 module.exports = parseParams
+
+
+/***/ }),
+
+/***/ 30209:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.ClientError = exports.parseAndMergeNestedHeaders = exports.DEFAULT_LIMIT_AFTER = exports.DEFAULT_LIMIT_BEFORE = exports.HEADER_X_VERSION_ID = exports.HEADER_X_CLUSTER_ID = void 0;
+/* eslint-disable max-lines */
+const form_data_1 = __importDefault(__nccwpck_require__(3778));
+const client4_1 = __nccwpck_require__(76389);
+const errors_1 = __nccwpck_require__(16505);
+const helpers_1 = __nccwpck_require__(16261);
+const HEADER_AUTH = 'Authorization';
+const HEADER_BEARER = 'BEARER';
+const HEADER_CONTENT_TYPE = 'Content-Type';
+const HEADER_REQUESTED_WITH = 'X-Requested-With';
+const HEADER_USER_AGENT = 'User-Agent';
+exports.HEADER_X_CLUSTER_ID = 'X-Cluster-Id';
+const HEADER_X_CSRF_TOKEN = 'X-CSRF-Token';
+exports.HEADER_X_VERSION_ID = 'X-Version-Id';
+const LOGS_PER_PAGE_DEFAULT = 10000;
+const AUTOCOMPLETE_LIMIT_DEFAULT = 25;
+const PER_PAGE_DEFAULT = 60;
+exports.DEFAULT_LIMIT_BEFORE = 30;
+exports.DEFAULT_LIMIT_AFTER = 30;
+class Client4 {
+    logToConsole = false;
+    serverVersion = '';
+    clusterId = '';
+    token = '';
+    csrf = '';
+    url = '';
+    urlVersion = '/api/v4';
+    userAgent = null;
+    enableLogging = false;
+    defaultHeaders = {};
+    userId = '';
+    diagnosticId = '';
+    includeCookies = true;
+    setAuthHeader = true;
+    translations = {
+        connectionError: 'There appears to be a problem with your internet connection.',
+        unknownError: 'We received an unexpected status code from the server.',
+    };
+    userRoles = '';
+    telemetryHandler;
+    getUrl() {
+        return this.url;
+    }
+    getAbsoluteUrl(baseUrl) {
+        if (typeof baseUrl !== 'string' || !baseUrl.startsWith('/')) {
+            return baseUrl;
+        }
+        return this.getUrl() + baseUrl;
+    }
+    setUrl(url) {
+        this.url = url;
+    }
+    setUserAgent(userAgent) {
+        this.userAgent = userAgent;
+    }
+    getToken() {
+        return this.token;
+    }
+    setToken(token) {
+        this.token = token;
+    }
+    setCSRF(csrfToken) {
+        this.csrf = csrfToken;
+    }
+    setAcceptLanguage(locale) {
+        this.defaultHeaders['Accept-Language'] = locale;
+    }
+    setHeader(header, value) {
+        this.defaultHeaders[header] = value;
+    }
+    removeHeader(header) {
+        delete this.defaultHeaders[header];
+    }
+    setEnableLogging(enable) {
+        this.enableLogging = enable;
+    }
+    setIncludeCookies(include) {
+        this.includeCookies = include;
+    }
+    setUserId(userId) {
+        this.userId = userId;
+    }
+    setUserRoles(roles) {
+        this.userRoles = roles;
+    }
+    setDiagnosticId(diagnosticId) {
+        this.diagnosticId = diagnosticId;
+    }
+    setTelemetryHandler(telemetryHandler) {
+        this.telemetryHandler = telemetryHandler;
+    }
+    getServerVersion() {
+        return this.serverVersion;
+    }
+    getUrlVersion() {
+        return this.urlVersion;
+    }
+    getBaseRoute() {
+        return `${this.url}${this.urlVersion}`;
+    }
+    getAppsProxyRoute() {
+        return `${this.url}/plugins/com.mattermost.apps`;
+    }
+    getUsersRoute() {
+        return `${this.getBaseRoute()}/users`;
+    }
+    getUserRoute(userId) {
+        return `${this.getUsersRoute()}/${userId}`;
+    }
+    getTeamsRoute() {
+        return `${this.getBaseRoute()}/teams`;
+    }
+    getTeamRoute(teamId) {
+        return `${this.getTeamsRoute()}/${teamId}`;
+    }
+    getTeamSchemeRoute(teamId) {
+        return `${this.getTeamRoute(teamId)}/scheme`;
+    }
+    getTeamNameRoute(teamName) {
+        return `${this.getTeamsRoute()}/name/${teamName}`;
+    }
+    getTeamMembersRoute(teamId) {
+        return `${this.getTeamRoute(teamId)}/members`;
+    }
+    getTeamMemberRoute(teamId, userId) {
+        return `${this.getTeamMembersRoute(teamId)}/${userId}`;
+    }
+    getChannelsRoute() {
+        return `${this.getBaseRoute()}/channels`;
+    }
+    getChannelRoute(channelId) {
+        return `${this.getChannelsRoute()}/${channelId}`;
+    }
+    getChannelMembersRoute(channelId) {
+        return `${this.getChannelRoute(channelId)}/members`;
+    }
+    getChannelMemberRoute(channelId, userId) {
+        return `${this.getChannelMembersRoute(channelId)}/${userId}`;
+    }
+    getChannelSchemeRoute(channelId) {
+        return `${this.getChannelRoute(channelId)}/scheme`;
+    }
+    getChannelBookmarksRoute(channelId) {
+        return `${this.getChannelRoute(channelId)}/bookmarks`;
+    }
+    getChannelBookmarkRoute(channelId, bookmarkId) {
+        return `${this.getChannelRoute(channelId)}/bookmarks/${bookmarkId}`;
+    }
+    getChannelCategoriesRoute(userId, teamId) {
+        return `${this.getBaseRoute()}/users/${userId}/teams/${teamId}/channels/categories`;
+    }
+    getRemoteClustersRoute() {
+        return `${this.getBaseRoute()}/remotecluster`;
+    }
+    getRemoteClusterRoute(remoteId) {
+        return `${this.getRemoteClustersRoute()}/${remoteId}`;
+    }
+    getPostsRoute() {
+        return `${this.getBaseRoute()}/posts`;
+    }
+    getPostRoute(postId) {
+        return `${this.getPostsRoute()}/${postId}`;
+    }
+    getReactionsRoute() {
+        return `${this.getBaseRoute()}/reactions`;
+    }
+    getCommandsRoute() {
+        return `${this.getBaseRoute()}/commands`;
+    }
+    getFilesRoute() {
+        return `${this.getBaseRoute()}/files`;
+    }
+    getFileRoute(fileId) {
+        return `${this.getFilesRoute()}/${fileId}`;
+    }
+    getPreferencesRoute(userId) {
+        return `${this.getUserRoute(userId)}/preferences`;
+    }
+    getIncomingHooksRoute() {
+        return `${this.getBaseRoute()}/hooks/incoming`;
+    }
+    getIncomingHookRoute(hookId) {
+        return `${this.getBaseRoute()}/hooks/incoming/${hookId}`;
+    }
+    getOutgoingHooksRoute() {
+        return `${this.getBaseRoute()}/hooks/outgoing`;
+    }
+    getOutgoingHookRoute(hookId) {
+        return `${this.getBaseRoute()}/hooks/outgoing/${hookId}`;
+    }
+    getOAuthRoute() {
+        return `${this.url}/oauth`;
+    }
+    getOAuthAppsRoute() {
+        return `${this.getBaseRoute()}/oauth/apps`;
+    }
+    getOAuthAppRoute(appId) {
+        return `${this.getOAuthAppsRoute()}/${appId}`;
+    }
+    getOutgoingOAuthConnectionsRoute() {
+        return `${this.getBaseRoute()}/oauth/outgoing_connections`;
+    }
+    getOutgoingOAuthConnectionRoute(connectionId) {
+        return `${this.getBaseRoute()}/oauth/outgoing_connections/${connectionId}`;
+    }
+    getEmojisRoute() {
+        return `${this.getBaseRoute()}/emoji`;
+    }
+    getEmojiRoute(emojiId) {
+        return `${this.getEmojisRoute()}/${emojiId}`;
+    }
+    getBrandRoute() {
+        return `${this.getBaseRoute()}/brand`;
+    }
+    getBrandImageUrl(timestamp) {
+        return `${this.getBrandRoute()}/image?t=${timestamp}`;
+    }
+    getDataRetentionRoute() {
+        return `${this.getBaseRoute()}/data_retention`;
+    }
+    getJobsRoute() {
+        return `${this.getBaseRoute()}/jobs`;
+    }
+    getPluginsRoute() {
+        return `${this.getBaseRoute()}/plugins`;
+    }
+    getPluginRoute(pluginId) {
+        return `${this.getPluginsRoute()}/${pluginId}`;
+    }
+    getPluginsMarketplaceRoute() {
+        return `${this.getPluginsRoute()}/marketplace`;
+    }
+    getRolesRoute() {
+        return `${this.getBaseRoute()}/roles`;
+    }
+    getSchemesRoute() {
+        return `${this.getBaseRoute()}/schemes`;
+    }
+    getBotsRoute() {
+        return `${this.getBaseRoute()}/bots`;
+    }
+    getBotRoute(botUserId) {
+        return `${this.getBotsRoute()}/${botUserId}`;
+    }
+    getGroupsRoute() {
+        return `${this.getBaseRoute()}/groups`;
+    }
+    getGroupRoute(groupID) {
+        return `${this.getGroupsRoute()}/${groupID}`;
+    }
+    getNoticesRoute() {
+        return `${this.getBaseRoute()}/system/notices`;
+    }
+    getCloudRoute() {
+        return `${this.getBaseRoute()}/cloud`;
+    }
+    getHostedCustomerRoute() {
+        return `${this.getBaseRoute()}/hosted_customer`;
+    }
+    getUsageRoute() {
+        return `${this.getBaseRoute()}/usage`;
+    }
+    getPermissionsRoute() {
+        return `${this.getBaseRoute()}/permissions`;
+    }
+    getUserThreadsRoute(userID, teamID) {
+        return `${this.getUserRoute(userID)}/teams/${teamID}/threads`;
+    }
+    getUserThreadRoute(userId, teamId, threadId) {
+        return `${this.getUserThreadsRoute(userId, teamId)}/${threadId}`;
+    }
+    getSystemRoute() {
+        return `${this.getBaseRoute()}/system`;
+    }
+    getDraftsRoute() {
+        return `${this.getBaseRoute()}/drafts`;
+    }
+    getReportsRoute() {
+        return `${this.getBaseRoute()}/reports`;
+    }
+    getLimitsRoute() {
+        return `${this.getBaseRoute()}/limits`;
+    }
+    getServerLimitsRoute() {
+        return `${this.getLimitsRoute()}/server`;
+    }
+    getClientMetricsRoute() {
+        return `${this.getBaseRoute()}/client_perf`;
+    }
+    getCSRFFromCookie() {
+        if (typeof document !== 'undefined' && typeof document.cookie !== 'undefined') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith('MMCSRF=')) {
+                    return cookie.replace('MMCSRF=', '');
+                }
+            }
+        }
+        return '';
+    }
+    getOptions(options) {
+        const newOptions = { ...options };
+        const headers = {
+            [HEADER_REQUESTED_WITH]: 'XMLHttpRequest',
+            ...this.defaultHeaders,
+        };
+        if (this.setAuthHeader && this.token) {
+            headers[HEADER_AUTH] = `${HEADER_BEARER} ${this.token}`;
+        }
+        const csrfToken = this.csrf || this.getCSRFFromCookie();
+        if (options.method && options.method.toLowerCase() !== 'get' && csrfToken) {
+            headers[HEADER_X_CSRF_TOKEN] = csrfToken;
+        }
+        if (this.includeCookies) {
+            newOptions.credentials = 'include';
+        }
+        if (this.userAgent) {
+            headers[HEADER_USER_AGENT] = this.userAgent;
+        }
+        if (!headers[HEADER_CONTENT_TYPE] && options.body) {
+            // when the body is an instance of FormData we let browser set the Content-Type header generated by FormData interface with correct boundary
+            if (!(options.body instanceof form_data_1.default)) {
+                headers[HEADER_CONTENT_TYPE] = 'application/json';
+            }
+        }
+        if (newOptions.headers) {
+            Object.assign(headers, newOptions.headers);
+        }
+        return {
+            ...newOptions,
+            headers,
+        };
+    }
+    // User Routes
+    createUser = (user, token, inviteId, redirect) => {
+        this.trackEvent('api', 'api_users_create');
+        const queryParams = {};
+        if (token) {
+            queryParams.t = token;
+        }
+        if (inviteId) {
+            queryParams.iid = inviteId;
+        }
+        if (redirect) {
+            queryParams.r = redirect;
+        }
+        return this.doFetch(`${this.getUsersRoute()}${(0, helpers_1.buildQueryString)(queryParams)}`, { method: 'post', body: JSON.stringify(user) });
+    };
+    patchMe = (userPatch) => {
+        return this.doFetch(`${this.getUserRoute('me')}/patch`, { method: 'put', body: JSON.stringify(userPatch) });
+    };
+    patchUser = (userPatch) => {
+        this.trackEvent('api', 'api_users_patch');
+        return this.doFetch(`${this.getUserRoute(userPatch.id)}/patch`, { method: 'put', body: JSON.stringify(userPatch) });
+    };
+    updateUser = (user) => {
+        this.trackEvent('api', 'api_users_update');
+        return this.doFetch(`${this.getUserRoute(user.id)}`, { method: 'put', body: JSON.stringify(user) });
+    };
+    promoteGuestToUser = (userId) => {
+        this.trackEvent('api', 'api_users_promote_guest_to_user');
+        return this.doFetch(`${this.getUserRoute(userId)}/promote`, { method: 'post' });
+    };
+    demoteUserToGuest = (userId) => {
+        this.trackEvent('api', 'api_users_demote_user_to_guest');
+        return this.doFetch(`${this.getUserRoute(userId)}/demote`, { method: 'post' });
+    };
+    updateUserRoles = (userId, roles) => {
+        this.trackEvent('api', 'api_users_update_roles');
+        return this.doFetch(`${this.getUserRoute(userId)}/roles`, { method: 'put', body: JSON.stringify({ roles }) });
+    };
+    updateUserMfa = (userId, activate, code) => {
+        const body = {
+            activate,
+        };
+        if (activate) {
+            body.code = code;
+        }
+        return this.doFetch(`${this.getUserRoute(userId)}/mfa`, { method: 'put', body: JSON.stringify(body) });
+    };
+    updateUserPassword = (userId, currentPassword, newPassword) => {
+        this.trackEvent('api', 'api_users_newpassword');
+        return this.doFetch(`${this.getUserRoute(userId)}/password`, { method: 'put', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) });
+    };
+    resetUserPassword = (token, newPassword) => {
+        this.trackEvent('api', 'api_users_reset_password');
+        return this.doFetch(`${this.getUsersRoute()}/password/reset`, { method: 'post', body: JSON.stringify({ token, new_password: newPassword }) });
+    };
+    getKnownUsers = () => {
+        return this.doFetch(`${this.getUsersRoute()}/known`, { method: 'get' });
+    };
+    sendPasswordResetEmail = (email) => {
+        this.trackEvent('api', 'api_users_send_password_reset');
+        return this.doFetch(`${this.getUsersRoute()}/password/reset/send`, { method: 'post', body: JSON.stringify({ email }) });
+    };
+    updateUserActive = (userId, active) => {
+        this.trackEvent('api', 'api_users_update_active');
+        return this.doFetch(`${this.getUserRoute(userId)}/active`, { method: 'put', body: JSON.stringify({ active }) });
+    };
+    uploadProfileImage = (userId, imageData) => {
+        this.trackEvent('api', 'api_users_update_profile_picture');
+        const formData = new form_data_1.default();
+        formData.append('image', imageData);
+        const request = {
+            method: 'post',
+            body: formData,
+        };
+        return this.doFetch(`${this.getUserRoute(userId)}/image`, request);
+    };
+    setDefaultProfileImage = (userId) => {
+        this.trackEvent('api', 'api_users_set_default_profile_picture');
+        return this.doFetch(`${this.getUserRoute(userId)}/image`, { method: 'delete' });
+    };
+    verifyUserEmail = (token) => {
+        return this.doFetch(`${this.getUsersRoute()}/email/verify`, { method: 'post', body: JSON.stringify({ token }) });
+    };
+    updateMyTermsOfServiceStatus = (termsOfServiceId, accepted) => {
+        return this.doFetch(`${this.getUserRoute('me')}/terms_of_service`, { method: 'post', body: JSON.stringify({ termsOfServiceId, accepted }) });
+    };
+    getTermsOfService = () => {
+        return this.doFetch(`${this.getBaseRoute()}/terms_of_service`, { method: 'get' });
+    };
+    createTermsOfService = (text) => {
+        return this.doFetch(`${this.getBaseRoute()}/terms_of_service`, { method: 'post', body: JSON.stringify({ text }) });
+    };
+    sendVerificationEmail = (email) => {
+        return this.doFetch(`${this.getUsersRoute()}/email/verify/send`, { method: 'post', body: JSON.stringify({ email }) });
+    };
+    login = async (loginId, password, token = '', ldapOnly = false) => {
+        this.trackEvent('api', 'api_users_login');
+        if (ldapOnly) {
+            this.trackEvent('api', 'api_users_login_ldap');
+        }
+        const body = {
+            login_id: loginId,
+            password,
+            token,
+            deviceId: '',
+        };
+        if (ldapOnly) {
+            body.ldap_only = 'true';
+        }
+        const { data: profile, headers, } = await this.doFetchWithResponse(`${this.getUsersRoute()}/login`, { method: 'post', body: JSON.stringify(body) });
+        if (headers.has('Token')) {
+            this.setToken(headers.get('Token'));
+        }
+        return profile;
+    };
+    loginWithDesktopToken = async (token) => {
+        const body = {
+            token,
+            deviceId: '',
+        };
+        return this.doFetch(`${this.getUsersRoute()}/login/desktop_token`, { method: 'post', body: JSON.stringify(body) });
+    };
+    loginById = (id, password, token = '') => {
+        this.trackEvent('api', 'api_users_login');
+        const body = {
+            id,
+            password,
+            token,
+            device_id: '',
+        };
+        return this.doFetch(`${this.getUsersRoute()}/login`, { method: 'post', body: JSON.stringify(body) });
+    };
+    logout = async () => {
+        this.trackEvent('api', 'api_users_logout');
+        const { response } = await this.doFetchWithResponse(`${this.getUsersRoute()}/logout`, { method: 'post' });
+        if (response.ok) {
+            this.token = '';
+        }
+        this.serverVersion = '';
+        return response;
+    };
+    getProfiles = (page = 0, perPage = PER_PAGE_DEFAULT, options = {}) => {
+        return this.doFetch(`${this.getUsersRoute()}${(0, helpers_1.buildQueryString)({ page, per_page: perPage, ...options })}`, { method: 'get' });
+    };
+    getProfilesByIds = (userIds, options = {}) => {
+        return this.doFetch(`${this.getUsersRoute()}/ids${(0, helpers_1.buildQueryString)(options)}`, { method: 'post', body: JSON.stringify(userIds) });
+    };
+    getProfilesByUsernames = (usernames) => {
+        return this.doFetch(`${this.getUsersRoute()}/usernames`, { method: 'post', body: JSON.stringify(usernames) });
+    };
+    getProfilesInTeam = (teamId, page = 0, perPage = PER_PAGE_DEFAULT, sort = '', options = {}) => {
+        return this.doFetch(`${this.getUsersRoute()}${(0, helpers_1.buildQueryString)({ ...options, in_team: teamId, page, per_page: perPage, sort })}`, { method: 'get' });
+    };
+    getProfilesNotInTeam = (teamId, groupConstrained, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        const queryStringObj = { not_in_team: teamId, page, per_page: perPage };
+        if (groupConstrained) {
+            queryStringObj.group_constrained = true;
+        }
+        return this.doFetch(`${this.getUsersRoute()}${(0, helpers_1.buildQueryString)(queryStringObj)}`, { method: 'get' });
+    };
+    getProfilesWithoutTeam = (page = 0, perPage = PER_PAGE_DEFAULT, options = {}) => {
+        return this.doFetch(`${this.getUsersRoute()}${(0, helpers_1.buildQueryString)({ ...options, without_team: 1, page, per_page: perPage })}`, { method: 'get' });
+    };
+    getProfilesInChannel = (channelId, page = 0, perPage = PER_PAGE_DEFAULT, sort = '', options = {}) => {
+        const queryStringObj = { in_channel: channelId, page, per_page: perPage, sort };
+        return this.doFetch(`${this.getUsersRoute()}${(0, helpers_1.buildQueryString)({ ...queryStringObj, ...options })}`, { method: 'get' });
+    };
+    getProfilesInGroupChannels = (channelsIds) => {
+        return this.doFetch(`${this.getUsersRoute()}/group_channels`, { method: 'post', body: JSON.stringify(channelsIds) });
+    };
+    getProfilesNotInChannel = (teamId, channelId, groupConstrained, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        const queryStringObj = { in_team: teamId, not_in_channel: channelId, page, per_page: perPage };
+        if (groupConstrained) {
+            queryStringObj.group_constrained = true;
+        }
+        return this.doFetch(`${this.getUsersRoute()}${(0, helpers_1.buildQueryString)(queryStringObj)}`, { method: 'get' });
+    };
+    getProfilesInGroup = (groupId, page = 0, perPage = PER_PAGE_DEFAULT, sort = '') => {
+        return this.doFetch(`${this.getUsersRoute()}${(0, helpers_1.buildQueryString)({ in_group: groupId, page, per_page: perPage, sort })}`, { method: 'get' });
+    };
+    getProfilesNotInGroup = (groupId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getUsersRoute()}${(0, helpers_1.buildQueryString)({ not_in_group: groupId, page, per_page: perPage })}`, { method: 'get' });
+    };
+    getMe = () => {
+        return this.doFetch(`${this.getUserRoute('me')}`, { method: 'get' });
+    };
+    getUser = (userId) => {
+        return this.doFetch(`${this.getUserRoute(userId)}`, { method: 'get' });
+    };
+    getUserByUsername = (username) => {
+        return this.doFetch(`${this.getUsersRoute()}/username/${username}`, { method: 'get' });
+    };
+    getUserByEmail = (email) => {
+        return this.doFetch(`${this.getUsersRoute()}/email/${email}`, { method: 'get' });
+    };
+    getProfilePictureUrl = (userId, lastPictureUpdate) => {
+        const params = {};
+        if (lastPictureUpdate) {
+            params._ = lastPictureUpdate;
+        }
+        return `${this.getUserRoute(userId)}/image${(0, helpers_1.buildQueryString)(params)}`;
+    };
+    getDefaultProfilePictureUrl = (userId) => {
+        return `${this.getUserRoute(userId)}/image/default`;
+    };
+    autocompleteUsers = (name, teamId, channelId, options = {
+        limit: AUTOCOMPLETE_LIMIT_DEFAULT,
+    }) => {
+        return this.doFetch(`${this.getUsersRoute()}/autocomplete${(0, helpers_1.buildQueryString)({
+            in_team: teamId,
+            in_channel: channelId,
+            name,
+            limit: options.limit,
+        })}`, {
+            method: 'get',
+        });
+    };
+    getSessions = (userId) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/sessions`, { method: 'get' });
+    };
+    revokeSession = (userId, sessionId) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/sessions/revoke`, { method: 'post', body: JSON.stringify({ session_id: sessionId }) });
+    };
+    revokeAllSessionsForUser = (userId) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/sessions/revoke/all`, { method: 'post' });
+    };
+    revokeSessionsForAllUsers = () => {
+        return this.doFetch(`${this.getUsersRoute()}/sessions/revoke/all`, { method: 'post' });
+    };
+    getUserAudits = (userId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/audits${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getUsersForReporting = (filter) => {
+        const queryString = (0, helpers_1.buildQueryString)(filter);
+        return this.doFetch(`${this.getReportsRoute()}/users${queryString}`, { method: 'get' });
+    };
+    getUserCountForReporting = (filter) => {
+        const queryString = (0, helpers_1.buildQueryString)(filter);
+        return this.doFetch(`${this.getReportsRoute()}/users/count${queryString}`, { method: 'get' });
+    };
+    startUsersBatchExport = (filter) => {
+        const queryString = (0, helpers_1.buildQueryString)(filter);
+        return this.doFetch(`${this.getReportsRoute()}/users/export${queryString}`, { method: 'post' });
+    };
+    /**
+     * @deprecated
+     */
+    checkUserMfa = (loginId) => {
+        return this.doFetch(`${this.getUsersRoute()}/mfa`, { method: 'post', body: JSON.stringify({ login_id: loginId }) });
+    };
+    generateMfaSecret = (userId) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/mfa/generate`, { method: 'post' });
+    };
+    searchUsers = (term, options) => {
+        this.trackEvent('api', 'api_search_users');
+        return this.doFetch(`${this.getUsersRoute()}/search`, { method: 'post', body: JSON.stringify({ term, ...options }) });
+    };
+    getStatusesByIds = (userIds) => {
+        return this.doFetch(`${this.getUsersRoute()}/status/ids`, { method: 'post', body: JSON.stringify(userIds) });
+    };
+    getStatus = (userId) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/status`, { method: 'get' });
+    };
+    updateStatus = (status) => {
+        return this.doFetch(`${this.getUserRoute(status.user_id)}/status`, { method: 'put', body: JSON.stringify(status) });
+    };
+    updateCustomStatus = (customStatus) => {
+        return this.doFetch(`${this.getUserRoute('me')}/status/custom`, { method: 'put', body: JSON.stringify(customStatus) });
+    };
+    unsetCustomStatus = () => {
+        return this.doFetch(`${this.getUserRoute('me')}/status/custom`, { method: 'delete' });
+    };
+    removeRecentCustomStatus = (customStatus) => {
+        return this.doFetch(`${this.getUserRoute('me')}/status/custom/recent/delete`, { method: 'post', body: JSON.stringify(customStatus) });
+    };
+    moveThread = (postId, channelId) => {
+        const url = this.getPostRoute(postId) + '/move';
+        return this.doFetch(url, { method: 'post', body: JSON.stringify({ channel_id: channelId }) });
+    };
+    switchEmailToOAuth = (service, email, password, mfaCode = '') => {
+        this.trackEvent('api', 'api_users_email_to_oauth');
+        return this.doFetch(`${this.getUsersRoute()}/login/switch`, { method: 'post', body: JSON.stringify({ current_service: 'email', new_service: service, email, password, mfa_code: mfaCode }) });
+    };
+    switchOAuthToEmail = (currentService, email, password) => {
+        this.trackEvent('api', 'api_users_oauth_to_email');
+        return this.doFetch(`${this.getUsersRoute()}/login/switch`, { method: 'post', body: JSON.stringify({ current_service: currentService, new_service: 'email', email, new_password: password }) });
+    };
+    switchEmailToLdap = (email, emailPassword, ldapId, ldapPassword, mfaCode = '') => {
+        this.trackEvent('api', 'api_users_email_to_ldap');
+        return this.doFetch(`${this.getUsersRoute()}/login/switch`, { method: 'post', body: JSON.stringify({ current_service: 'email', new_service: 'ldap', email, password: emailPassword, ldap_id: ldapId, new_password: ldapPassword, mfa_code: mfaCode }) });
+    };
+    switchLdapToEmail = (ldapPassword, email, emailPassword, mfaCode = '') => {
+        this.trackEvent('api', 'api_users_ldap_to_email');
+        return this.doFetch(`${this.getUsersRoute()}/login/switch`, { method: 'post', body: JSON.stringify({ current_service: 'ldap', new_service: 'email', email, password: ldapPassword, new_password: emailPassword, mfa_code: mfaCode }) });
+    };
+    getAuthorizedOAuthApps = (userId) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/oauth/apps/authorized`, { method: 'get' });
+    };
+    authorizeOAuthApp = (responseType, clientId, redirectUri, state, scope) => {
+        return this.doFetch(`${this.url}/oauth/authorize`, { method: 'post', body: JSON.stringify({ client_id: clientId, response_type: responseType, redirect_uri: redirectUri, state, scope }) });
+    };
+    deauthorizeOAuthApp = (clientId) => {
+        return this.doFetch(`${this.url}/oauth/deauthorize`, { method: 'post', body: JSON.stringify({ client_id: clientId }) });
+    };
+    createUserAccessToken = (userId, description) => {
+        this.trackEvent('api', 'api_users_create_access_token');
+        return this.doFetch(`${this.getUserRoute(userId)}/tokens`, { method: 'post', body: JSON.stringify({ description }) });
+    };
+    getUserAccessToken = (tokenId) => {
+        return this.doFetch(`${this.getUsersRoute()}/tokens/${tokenId}`, { method: 'get' });
+    };
+    getUserAccessTokensForUser = (userId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/tokens${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getUserAccessTokens = (page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getUsersRoute()}/tokens${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    revokeUserAccessToken = (tokenId) => {
+        this.trackEvent('api', 'api_users_revoke_access_token');
+        return this.doFetch(`${this.getUsersRoute()}/tokens/revoke`, { method: 'post', body: JSON.stringify({ token_id: tokenId }) });
+    };
+    disableUserAccessToken = (tokenId) => {
+        return this.doFetch(`${this.getUsersRoute()}/tokens/disable`, { method: 'post', body: JSON.stringify({ token_id: tokenId }) });
+    };
+    enableUserAccessToken = (tokenId) => {
+        return this.doFetch(`${this.getUsersRoute()}/tokens/enable`, { method: 'post', body: JSON.stringify({ token_id: tokenId }) });
+    };
+    // Limits Routes
+    getServerLimits = () => {
+        return this.doFetchWithResponse(`${this.getServerLimitsRoute()}`, {
+            method: 'get',
+        });
+    };
+    // Team Routes
+    createTeam = (team) => {
+        this.trackEvent('api', 'api_teams_create');
+        return this.doFetch(`${this.getTeamsRoute()}`, { method: 'post', body: JSON.stringify(team) });
+    };
+    deleteTeam = (teamId) => {
+        this.trackEvent('api', 'api_teams_delete');
+        return this.doFetch(`${this.getTeamRoute(teamId)}`, { method: 'delete' });
+    };
+    unarchiveTeam = (teamId) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/restore`, { method: 'post' });
+    };
+    updateTeam = (team) => {
+        this.trackEvent('api', 'api_teams_update_name', { team_id: team.id });
+        return this.doFetch(`${this.getTeamRoute(team.id)}`, { method: 'put', body: JSON.stringify(team) });
+    };
+    patchTeam = (team) => {
+        this.trackEvent('api', 'api_teams_patch_name', { team_id: team.id });
+        return this.doFetch(`${this.getTeamRoute(team.id)}/patch`, { method: 'put', body: JSON.stringify(team) });
+    };
+    regenerateTeamInviteId = (teamId) => {
+        this.trackEvent('api', 'api_teams_regenerate_invite_id', { team_id: teamId });
+        return this.doFetch(`${this.getTeamRoute(teamId)}/regenerate_invite_id`, { method: 'post' });
+    };
+    updateTeamScheme = (teamId, schemeId) => {
+        const patch = { scheme_id: schemeId };
+        this.trackEvent('api', 'api_teams_update_scheme', { team_id: teamId, ...patch });
+        return this.doFetch(`${this.getTeamSchemeRoute(teamId)}`, { method: 'put', body: JSON.stringify(patch) });
+    };
+    checkIfTeamExists = (teamName) => {
+        return this.doFetch(`${this.getTeamNameRoute(teamName)}/exists`, { method: 'get' });
+    };
+    getTeams = (page = 0, perPage = PER_PAGE_DEFAULT, includeTotalCount = false, excludePolicyConstrained = false) => {
+        return this.doFetch(`${this.getTeamsRoute()}${(0, helpers_1.buildQueryString)({ page, per_page: perPage, include_total_count: includeTotalCount, exclude_policy_constrained: excludePolicyConstrained })}`, { method: 'get' });
+    };
+    searchTeams(term, opts) {
+        this.trackEvent('api', 'api_search_teams');
+        return this.doFetch(`${this.getTeamsRoute()}/search`, { method: 'post', body: JSON.stringify({ term, ...opts }) });
+    }
+    getTeam = (teamId) => {
+        return this.doFetch(this.getTeamRoute(teamId), { method: 'get' });
+    };
+    getTeamByName = (teamName) => {
+        this.trackEvent('api', 'api_teams_get_team_by_name');
+        return this.doFetch(this.getTeamNameRoute(teamName), { method: 'get' });
+    };
+    getMyTeams = () => {
+        return this.doFetch(`${this.getUserRoute('me')}/teams`, { method: 'get' });
+    };
+    getTeamsForUser = (userId) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/teams`, { method: 'get' });
+    };
+    getMyTeamMembers = () => {
+        return this.doFetch(`${this.getUserRoute('me')}/teams/members`, { method: 'get' });
+    };
+    getMyTeamUnreads = (includeCollapsedThreads = false) => {
+        return this.doFetch(`${this.getUserRoute('me')}/teams/unread${(0, helpers_1.buildQueryString)({ include_collapsed_threads: includeCollapsedThreads })}`, { method: 'get' });
+    };
+    getTeamMembers = (teamId, page = 0, perPage = PER_PAGE_DEFAULT, options) => {
+        return this.doFetch(`${this.getTeamMembersRoute(teamId)}${(0, helpers_1.buildQueryString)({ page, per_page: perPage, ...options })}`, { method: 'get' });
+    };
+    getTeamMembersForUser = (userId) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/teams/members`, { method: 'get' });
+    };
+    getTeamMember = (teamId, userId) => {
+        return this.doFetch(`${this.getTeamMemberRoute(teamId, userId)}`, { method: 'get' });
+    };
+    getTeamMembersByIds = (teamId, userIds) => {
+        return this.doFetch(`${this.getTeamMembersRoute(teamId)}/ids`, { method: 'post', body: JSON.stringify(userIds) });
+    };
+    addToTeam = (teamId, userId) => {
+        this.trackEvent('api', 'api_teams_invite_members', { team_id: teamId });
+        const member = { user_id: userId, team_id: teamId };
+        return this.doFetch(`${this.getTeamMembersRoute(teamId)}`, { method: 'post', body: JSON.stringify(member) });
+    };
+    addToTeamFromInvite = (token = '', inviteId = '') => {
+        this.trackEvent('api', 'api_teams_invite_members');
+        const query = (0, helpers_1.buildQueryString)({ token, invite_id: inviteId });
+        return this.doFetch(`${this.getTeamsRoute()}/members/invite${query}`, { method: 'post' });
+    };
+    addUsersToTeam = (teamId, userIds) => {
+        this.trackEvent('api', 'api_teams_batch_add_members', { team_id: teamId, count: userIds.length });
+        const members = [];
+        userIds.forEach((id) => members.push({ team_id: teamId, user_id: id }));
+        return this.doFetch(`${this.getTeamMembersRoute(teamId)}/batch`, { method: 'post', body: JSON.stringify(members) });
+    };
+    addUsersToTeamGracefully = (teamId, userIds) => {
+        this.trackEvent('api', 'api_teams_batch_add_members', { team_id: teamId, count: userIds.length });
+        const members = [];
+        userIds.forEach((id) => members.push({ team_id: teamId, user_id: id }));
+        return this.doFetch(`${this.getTeamMembersRoute(teamId)}/batch?graceful=true`, { method: 'post', body: JSON.stringify(members) });
+    };
+    joinTeam = (inviteId) => {
+        const query = (0, helpers_1.buildQueryString)({ invite_id: inviteId });
+        return this.doFetch(`${this.getTeamsRoute()}/members/invite${query}`, { method: 'post' });
+    };
+    removeFromTeam = (teamId, userId) => {
+        this.trackEvent('api', 'api_teams_remove_members', { team_id: teamId });
+        return this.doFetch(`${this.getTeamMemberRoute(teamId, userId)}`, { method: 'delete' });
+    };
+    getTeamStats = (teamId) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/stats`, { method: 'get' });
+    };
+    getTotalUsersStats = () => {
+        return this.doFetch(`${this.getUsersRoute()}/stats`, { method: 'get' });
+    };
+    getFilteredUsersStats = (options) => {
+        return this.doFetch(`${this.getUsersRoute()}/stats/filtered${(0, helpers_1.buildQueryString)(options)}`, { method: 'get' });
+    };
+    invalidateAllEmailInvites = () => {
+        return this.doFetch(`${this.getTeamsRoute()}/invites/email`, { method: 'delete' });
+    };
+    getTeamInviteInfo = (inviteId) => {
+        return this.doFetch(`${this.getTeamsRoute()}/invite/${inviteId}`, { method: 'get' });
+    };
+    updateTeamMemberRoles = (teamId, userId, roles) => {
+        this.trackEvent('api', 'api_teams_update_member_roles', { team_id: teamId });
+        return this.doFetch(`${this.getTeamMemberRoute(teamId, userId)}/roles`, { method: 'put', body: JSON.stringify({ roles }) });
+    };
+    sendEmailInvitesToTeam = (teamId, emails) => {
+        this.trackEvent('api', 'api_teams_invite_members', { team_id: teamId });
+        return this.doFetch(`${this.getTeamRoute(teamId)}/invite/email`, { method: 'post', body: JSON.stringify(emails) });
+    };
+    sendEmailGuestInvitesToChannels = (teamId, channelIds, emails, message) => {
+        this.trackEvent('api', 'api_teams_invite_guests', { team_id: teamId, channel_ids: channelIds });
+        return this.doFetch(`${this.getTeamRoute(teamId)}/invite-guests/email`, { method: 'post', body: JSON.stringify({ emails, channels: channelIds, message }) });
+    };
+    sendEmailInvitesToTeamGracefully = (teamId, emails) => {
+        this.trackEvent('api', 'api_teams_invite_members', { team_id: teamId });
+        return this.doFetch(`${this.getTeamRoute(teamId)}/invite/email?graceful=true`, { method: 'post', body: JSON.stringify(emails) });
+    };
+    sendEmailInvitesToTeamAndChannelsGracefully = (teamId, channelIds, emails, message) => {
+        this.trackEvent('api', 'api_teams_invite_members_to_channels', { team_id: teamId, channel_len: channelIds.length });
+        return this.doFetch(`${this.getTeamRoute(teamId)}/invite/email?graceful=true`, { method: 'post', body: JSON.stringify({ emails, channelIds, message }) });
+    };
+    sendEmailGuestInvitesToChannelsGracefully = async (teamId, channelIds, emails, message) => {
+        this.trackEvent('api', 'api_teams_invite_guests', { team_id: teamId, channel_ids: channelIds });
+        return this.doFetch(`${this.getTeamRoute(teamId)}/invite-guests/email?graceful=true`, { method: 'post', body: JSON.stringify({ emails, channels: channelIds, message }) });
+    };
+    getTeamIconUrl = (teamId, lastTeamIconUpdate) => {
+        const params = {};
+        if (lastTeamIconUpdate) {
+            params._ = lastTeamIconUpdate;
+        }
+        return `${this.getTeamRoute(teamId)}/image${(0, helpers_1.buildQueryString)(params)}`;
+    };
+    setTeamIcon = (teamId, imageData) => {
+        this.trackEvent('api', 'api_team_set_team_icon');
+        const formData = new form_data_1.default();
+        formData.append('image', imageData);
+        const request = {
+            method: 'post',
+            body: formData,
+        };
+        return this.doFetch(`${this.getTeamRoute(teamId)}/image`, request);
+    };
+    removeTeamIcon = (teamId) => {
+        this.trackEvent('api', 'api_team_remove_team_icon');
+        return this.doFetch(`${this.getTeamRoute(teamId)}/image`, { method: 'delete' });
+    };
+    updateTeamMemberSchemeRoles = (teamId, userId, isSchemeUser, isSchemeAdmin) => {
+        const body = { scheme_user: isSchemeUser, scheme_admin: isSchemeAdmin };
+        return this.doFetch(`${this.getTeamRoute(teamId)}/members/${userId}/schemeRoles`, { method: 'put', body: JSON.stringify(body) });
+    };
+    getAllChannels(page = 0, perPage = PER_PAGE_DEFAULT, notAssociatedToGroup = '', excludeDefaultChannels = false, includeTotalCount = false, includeDeleted = false, excludePolicyConstrained = false) {
+        const queryData = {
+            page,
+            per_page: perPage,
+            not_associated_to_group: notAssociatedToGroup,
+            exclude_default_channels: excludeDefaultChannels,
+            include_total_count: includeTotalCount,
+            include_deleted: includeDeleted,
+            exclude_policy_constrained: excludePolicyConstrained,
+        };
+        return this.doFetch(`${this.getChannelsRoute()}${(0, helpers_1.buildQueryString)(queryData)}`, { method: 'get' });
+    }
+    createChannel = (channel) => {
+        this.trackEvent('api', 'api_channels_create', { team_id: channel.team_id });
+        return this.doFetch(`${this.getChannelsRoute()}`, { method: 'post', body: JSON.stringify(channel) });
+    };
+    createDirectChannel = (userIds) => {
+        this.trackEvent('api', 'api_channels_create_direct');
+        return this.doFetch(`${this.getChannelsRoute()}/direct`, { method: 'post', body: JSON.stringify(userIds) });
+    };
+    createGroupChannel = (userIds) => {
+        this.trackEvent('api', 'api_channels_create_group');
+        return this.doFetch(`${this.getChannelsRoute()}/group`, { method: 'post', body: JSON.stringify(userIds) });
+    };
+    deleteChannel = (channelId) => {
+        this.trackEvent('api', 'api_channels_delete', { channel_id: channelId });
+        return this.doFetch(`${this.getChannelRoute(channelId)}`, { method: 'delete' });
+    };
+    unarchiveChannel = (channelId) => {
+        this.trackEvent('api', 'api_channels_unarchive', { channel_id: channelId });
+        return this.doFetch(`${this.getChannelRoute(channelId)}/restore`, { method: 'post' });
+    };
+    updateChannel = (channel) => {
+        this.trackEvent('api', 'api_channels_update', { channel_id: channel.id });
+        return this.doFetch(`${this.getChannelRoute(channel.id)}`, { method: 'put', body: JSON.stringify(channel) });
+    };
+    updateChannelPrivacy = (channelId, privacy) => {
+        this.trackEvent('api', 'api_channels_update_privacy', { channel_id: channelId, privacy });
+        return this.doFetch(`${this.getChannelRoute(channelId)}/privacy`, { method: 'put', body: JSON.stringify({ privacy }) });
+    };
+    patchChannel = (channelId, channelPatch) => {
+        this.trackEvent('api', 'api_channels_patch', { channel_id: channelId });
+        return this.doFetch(`${this.getChannelRoute(channelId)}/patch`, { method: 'put', body: JSON.stringify(channelPatch) });
+    };
+    updateChannelNotifyProps = (props) => {
+        this.trackEvent('api', 'api_users_update_channel_notifications', { channel_id: props.channel_id });
+        return this.doFetch(`${this.getChannelMemberRoute(props.channel_id, props.user_id)}/notify_props`, { method: 'put', body: JSON.stringify(props) });
+    };
+    updateChannelScheme = (channelId, schemeId) => {
+        const patch = { scheme_id: schemeId };
+        this.trackEvent('api', 'api_channels_update_scheme', { channel_id: channelId, ...patch });
+        return this.doFetch(`${this.getChannelSchemeRoute(channelId)}`, { method: 'put', body: JSON.stringify(patch) });
+    };
+    getChannel = (channelId) => {
+        return this.doFetch(`${this.getChannelRoute(channelId)}`, { method: 'get' });
+    };
+    getChannelByName = (teamId, channelName, includeDeleted = false) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/channels/name/${channelName}?include_deleted=${includeDeleted}`, { method: 'get' });
+    };
+    getChannelByNameAndTeamName = (teamName, channelName, includeDeleted = false) => {
+        return this.doFetch(`${this.getTeamNameRoute(teamName)}/channels/name/${channelName}?include_deleted=${includeDeleted}`, { method: 'get' });
+    };
+    getChannels = (teamId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/channels${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getAllTeamsChannels = () => {
+        return this.doFetch(`${this.getUsersRoute()}/me/channels`, { method: 'get' });
+    };
+    getArchivedChannels = (teamId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/channels/deleted${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getMyChannels = (teamId, includeDeleted = false) => {
+        return this.doFetch(`${this.getUserRoute('me')}/teams/${teamId}/channels${(0, helpers_1.buildQueryString)({ include_deleted: includeDeleted })}`, { method: 'get' });
+    };
+    getAllChannelsMembers = (userId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/channel_members${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getMyChannelMember = (channelId) => {
+        return this.doFetch(`${this.getChannelMemberRoute(channelId, 'me')}`, { method: 'get' });
+    };
+    getMyChannelMembers = (teamId) => {
+        return this.doFetch(`${this.getUserRoute('me')}/teams/${teamId}/channels/members`, { method: 'get' });
+    };
+    getChannelMembers = (channelId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getChannelMembersRoute(channelId)}${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getChannelTimezones = (channelId) => {
+        return this.doFetch(`${this.getChannelRoute(channelId)}/timezones`, { method: 'get' });
+    };
+    getChannelMember = (channelId, userId) => {
+        return this.doFetch(`${this.getChannelMemberRoute(channelId, userId)}`, { method: 'get' });
+    };
+    getChannelMembersByIds = (channelId, userIds) => {
+        return this.doFetch(`${this.getChannelMembersRoute(channelId)}/ids`, { method: 'post', body: JSON.stringify(userIds) });
+    };
+    addToChannels = (userIds, channelId, postRootId = '') => {
+        this.trackEvent('api', 'api_channels_add_members', { channel_id: channelId });
+        const members = { user_ids: userIds, channel_id: channelId, post_root_id: postRootId };
+        return this.doFetch(`${this.getChannelMembersRoute(channelId)}`, { method: 'post', body: JSON.stringify(members) });
+    };
+    addToChannel = (userId, channelId, postRootId = '') => {
+        this.trackEvent('api', 'api_channels_add_member', { channel_id: channelId });
+        const member = { user_id: userId, channel_id: channelId, post_root_id: postRootId };
+        return this.doFetch(`${this.getChannelMembersRoute(channelId)}`, { method: 'post', body: JSON.stringify(member) });
+    };
+    removeFromChannel = (userId, channelId) => {
+        this.trackEvent('api', 'api_channels_remove_member', { channel_id: channelId });
+        return this.doFetch(`${this.getChannelMemberRoute(channelId, userId)}`, { method: 'delete' });
+    };
+    updateChannelMemberRoles = (channelId, userId, roles) => {
+        return this.doFetch(`${this.getChannelMemberRoute(channelId, userId)}/roles`, { method: 'put', body: JSON.stringify({ roles }) });
+    };
+    getChannelStats = (channelId, includeFileCount = false) => {
+        const param = includeFileCount ? '' : '?exclude_files_count=true';
+        return this.doFetch(`${this.getChannelRoute(channelId)}/stats${param}`, { method: 'get' });
+    };
+    getChannelsMemberCount = (channelIds) => {
+        return this.doFetch(`${this.getChannelsRoute()}/stats/member_count`, { method: 'post', body: JSON.stringify(channelIds) });
+    };
+    getChannelModerations = (channelId) => {
+        return this.doFetch(`${this.getChannelRoute(channelId)}/moderations`, { method: 'get' });
+    };
+    patchChannelModerations = (channelId, channelModerationsPatch) => {
+        return this.doFetch(`${this.getChannelRoute(channelId)}/moderations/patch`, { method: 'put', body: JSON.stringify(channelModerationsPatch) });
+    };
+    getChannelMemberCountsByGroup = (channelId, includeTimezones) => {
+        return this.doFetch(`${this.getChannelRoute(channelId)}/member_counts_by_group?include_timezones=${includeTimezones}`, { method: 'get' });
+    };
+    viewMyChannel = (channelId) => {
+        const data = { channel_id: channelId, collapsed_threads_supported: true };
+        return this.doFetch(`${this.getChannelsRoute()}/members/me/view`, { method: 'post', body: JSON.stringify(data) });
+    };
+    readMultipleChannels = (channelIds) => {
+        return this.doFetch(`${this.getChannelsRoute()}/members/me/mark_read`, { method: 'post', body: JSON.stringify(channelIds) });
+    };
+    autocompleteChannels = (teamId, name) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/channels/autocomplete${(0, helpers_1.buildQueryString)({ name })}`, { method: 'get' });
+    };
+    autocompleteChannelsForSearch = (teamId, name) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/channels/search_autocomplete${(0, helpers_1.buildQueryString)({ name })}`, { method: 'get' });
+    };
+    searchChannels = (teamId, term) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/channels/search`, { method: 'post', body: JSON.stringify({ term }) });
+    };
+    searchArchivedChannels = (teamId, term) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/channels/search_archived`, { method: 'post', body: JSON.stringify({ term }) });
+    };
+    searchAllChannels(term, opts = {}) {
+        const body = {
+            term,
+            ...opts,
+        };
+        const includeDeleted = Boolean(opts.include_deleted);
+        const nonAdminSearch = Boolean(opts.nonAdminSearch);
+        const excludeRemote = Boolean(opts.exclude_remote);
+        let queryParams = { include_deleted: includeDeleted, exclude_remote: excludeRemote };
+        if (nonAdminSearch) {
+            queryParams = { system_console: false };
+            delete body.nonAdminSearch;
+        }
+        return this.doFetch(`${this.getChannelsRoute()}/search${(0, helpers_1.buildQueryString)(queryParams)}`, { method: 'post', body: JSON.stringify(body), signal: opts.signal });
+    }
+    searchGroupChannels = (term) => {
+        return this.doFetch(`${this.getChannelsRoute()}/group/search`, { method: 'post', body: JSON.stringify({ term }) });
+    };
+    updateChannelMemberSchemeRoles = (channelId, userId, isSchemeUser, isSchemeAdmin) => {
+        const body = { scheme_user: isSchemeUser, scheme_admin: isSchemeAdmin };
+        return this.doFetch(`${this.getChannelRoute(channelId)}/members/${userId}/schemeRoles`, { method: 'put', body: JSON.stringify(body) });
+    };
+    // Channel Bookmark Routes
+    getChannelBookmarks = (channelId, bookmarksSince) => {
+        return this.doFetch(`${this.getChannelBookmarksRoute(channelId)}${(0, helpers_1.buildQueryString)({ bookmarks_since: bookmarksSince })}`, { method: 'get' });
+    };
+    createChannelBookmark = (channelId, channelBookmark, connectionId) => {
+        return this.doFetch(`${this.getChannelBookmarksRoute(channelId)}`, { method: 'post', body: JSON.stringify(channelBookmark), headers: { 'Connection-Id': connectionId } });
+    };
+    deleteChannelBookmark = (channelId, channelBookmarkId, connectionId) => {
+        return this.doFetch(`${this.getChannelBookmarkRoute(channelId, channelBookmarkId)}`, { method: 'delete', headers: { 'Connection-Id': connectionId } });
+    };
+    updateChannelBookmark = (channelId, channelBookmarkId, patch, connectionId) => {
+        return this.doFetch(`${this.getChannelBookmarkRoute(channelId, channelBookmarkId)}`, { method: 'PATCH', body: JSON.stringify(patch), headers: { 'Connection-Id': connectionId } });
+    };
+    updateChannelBookmarkSortOrder = (channelId, channelBookmarkId, newOrder, connectionId) => {
+        return this.doFetch(`${this.getChannelBookmarksRoute(channelId)}/${channelBookmarkId}/sort_order`, { method: 'post', body: JSON.stringify(newOrder), headers: { 'Connection-Id': connectionId } });
+    };
+    //  Channel Category Routes
+    getChannelCategories = (userId, teamId) => {
+        return this.doFetch(`${this.getChannelCategoriesRoute(userId, teamId)}`, { method: 'get' });
+    };
+    createChannelCategory = (userId, teamId, category) => {
+        return this.doFetch(`${this.getChannelCategoriesRoute(userId, teamId)}`, { method: 'post', body: JSON.stringify(category) });
+    };
+    updateChannelCategories = (userId, teamId, categories) => {
+        return this.doFetch(`${this.getChannelCategoriesRoute(userId, teamId)}`, { method: 'put', body: JSON.stringify(categories) });
+    };
+    getChannelCategoryOrder = (userId, teamId) => {
+        return this.doFetch(`${this.getChannelCategoriesRoute(userId, teamId)}/order`, { method: 'get' });
+    };
+    updateChannelCategoryOrder = (userId, teamId, categoryOrder) => {
+        return this.doFetch(`${this.getChannelCategoriesRoute(userId, teamId)}/order`, { method: 'put', body: JSON.stringify(categoryOrder) });
+    };
+    getChannelCategory = (userId, teamId, categoryId) => {
+        return this.doFetch(`${this.getChannelCategoriesRoute(userId, teamId)}/${categoryId}`, { method: 'get' });
+    };
+    updateChannelCategory = (userId, teamId, category) => {
+        return this.doFetch(`${this.getChannelCategoriesRoute(userId, teamId)}/${category.id}`, { method: 'put', body: JSON.stringify(category) });
+    };
+    deleteChannelCategory = (userId, teamId, categoryId) => {
+        return this.doFetch(`${this.getChannelCategoriesRoute(userId, teamId)}/${categoryId}`, { method: 'delete' });
+    };
+    // Remote Clusters Routes
+    getRemoteClusters = (options) => {
+        return this.doFetch(`${this.getRemoteClustersRoute()}${(0, helpers_1.buildQueryString)({ exclude_plugins: options.excludePlugins })}`, { method: 'GET' });
+    };
+    getRemoteCluster = (remoteId) => {
+        return this.doFetch(`${this.getRemoteClusterRoute(remoteId)}`, { method: 'GET' });
+    };
+    createRemoteCluster = (remoteCluster) => {
+        return this.doFetch(`${this.getRemoteClustersRoute()}`, { method: 'POST', body: JSON.stringify(remoteCluster) });
+    };
+    patchRemoteCluster = (remoteId, patch) => {
+        return this.doFetch(`${this.getRemoteClusterRoute(remoteId)}`, { method: 'PATCH', body: JSON.stringify(patch) });
+    };
+    deleteRemoteCluster = (remoteId) => {
+        return this.doFetch(`${this.getRemoteClusterRoute(remoteId)}`, { method: 'DELETE' });
+    };
+    acceptInviteRemoteCluster = (remoteClusterAcceptInvite) => {
+        return this.doFetch(`${this.getRemoteClustersRoute()}/accept_invite`, { method: 'POST', body: JSON.stringify(remoteClusterAcceptInvite) });
+    };
+    generateInviteRemoteCluster = (remoteId, remoteCluster) => {
+        return this.doFetch(`${this.getRemoteClusterRoute(remoteId)}/generate_invite`, { method: 'POST', body: JSON.stringify(remoteCluster) });
+    };
+    // Shared Channels Routes
+    getSharedChannelRemotes = (remoteId, filters) => {
+        return this.doFetch(`${this.getRemoteClusterRoute(remoteId)}/sharedchannelremotes${(0, helpers_1.buildQueryString)(filters)}`, { method: 'GET' });
+    };
+    sharedChannelRemoteInvite = (remoteId, channelId) => {
+        return this.doFetch(`${this.getRemoteClusterRoute(remoteId)}/channels/${channelId}/invite`, { method: 'POST' });
+    };
+    sharedChannelRemoteUninvite = (remoteId, channelId) => {
+        return this.doFetch(`${this.getRemoteClusterRoute(remoteId)}/channels/${channelId}/uninvite`, { method: 'POST' });
+    };
+    // Post Routes
+    createPost = async (post) => {
+        const result = await this.doFetch(`${this.getPostsRoute()}`, { method: 'post', body: JSON.stringify(post) });
+        const analyticsData = { channel_id: result.channel_id, post_id: result.id, user_actual_id: result.user_id, root_id: result.root_id };
+        if (post.metadata?.priority) {
+            analyticsData.priority = post.metadata.priority.priority;
+            analyticsData.requested_ack = post.metadata.priority.requested_ack;
+            analyticsData.persistent_notifications = post.metadata.priority.persistent_notifications;
+        }
+        this.trackEvent('api', 'api_posts_create', analyticsData);
+        if (result.root_id != null && result.root_id !== '') {
+            this.trackEvent('api', 'api_posts_replied', analyticsData);
+        }
+        return result;
+    };
+    updatePost = (post) => {
+        this.trackEvent('api', 'api_posts_update', { channel_id: post.channel_id, post_id: post.id });
+        return this.doFetch(`${this.getPostRoute(post.id)}`, { method: 'put', body: JSON.stringify(post) });
+    };
+    getPost = (postId) => {
+        return this.doFetch(`${this.getPostRoute(postId)}`, { method: 'get' });
+    };
+    patchPost = (postPatch) => {
+        this.trackEvent('api', 'api_posts_patch', { channel_id: postPatch.channel_id, post_id: postPatch.id });
+        return this.doFetch(`${this.getPostRoute(postPatch.id)}/patch`, { method: 'put', body: JSON.stringify(postPatch) });
+    };
+    deletePost = (postId) => {
+        this.trackEvent('api', 'api_posts_delete');
+        return this.doFetch(`${this.getPostRoute(postId)}`, { method: 'delete' });
+    };
+    getPostThread = (postId, fetchThreads = true, collapsedThreads = false, collapsedThreadsExtended = false) => {
+        // this is to ensure we have backwards compatibility for `getPostThread`
+        return this.getPaginatedPostThread(postId, { fetchThreads, collapsedThreads, collapsedThreadsExtended });
+    };
+    getPaginatedPostThread = async (postId, options) => {
+        // getting all option parameters with defaults from the options object and spread the rest
+        const { fetchThreads = true, collapsedThreads = false, collapsedThreadsExtended = false, direction = 'down', fetchAll = false, perPage = fetchAll ? undefined : PER_PAGE_DEFAULT, ...rest } = options;
+        return this.doFetch(`${this.getPostRoute(postId)}/thread${(0, helpers_1.buildQueryString)({ skipFetchThreads: !fetchThreads, collapsedThreads, collapsedThreadsExtended, direction, perPage, ...rest })}`, { method: 'get' });
+    };
+    getPosts = (channelId, page = 0, perPage = PER_PAGE_DEFAULT, fetchThreads = true, collapsedThreads = false, collapsedThreadsExtended = false) => {
+        return this.doFetch(`${this.getChannelRoute(channelId)}/posts${(0, helpers_1.buildQueryString)({ page, per_page: perPage, skipFetchThreads: !fetchThreads, collapsedThreads, collapsedThreadsExtended })}`, { method: 'get' });
+    };
+    getPostsUnread = (channelId, userId, limitAfter = exports.DEFAULT_LIMIT_AFTER, limitBefore = exports.DEFAULT_LIMIT_BEFORE, fetchThreads = true, collapsedThreads = false, collapsedThreadsExtended = false) => {
+        return this.doFetch(`${this.getUserRoute(userId)}/channels/${channelId}/posts/unread${(0, helpers_1.buildQueryString)({ limit_after: limitAfter, limit_before: limitBefore, skipFetchThreads: !fetchThreads, collapsedThreads, collapsedThreadsExtended })}`, { method: 'get' });
+    };
+    getPostsSince = (channelId, since, fetchThreads = true, collapsedThreads = false, collapsedThreadsExtended = false) => {
+        return this.doFetch(`${this.getChannelRoute(channelId)}/posts${(0, helpers_1.buildQueryString)({ since, skipFetchThreads: !fetchThreads, collapsedThreads, collapsedThreadsExtended })}`, { method: 'get' });
+    };
+    getPostsBefore = (channelId, postId, page = 0, perPage = PER_PAGE_DEFAULT, fetchThreads = true, collapsedThreads = false, collapsedThreadsExtended = false) => {
+        return this.doFetch(`${this.getChannelRoute(channelId)}/posts${(0, helpers_1.buildQueryString)({ before: postId, page, per_page: perPage, skipFetchThreads: !fetchThreads, collapsedThreads, collapsedThreadsExtended })}`, { method: 'get' });
+    };
+    getPostsAfter = (channelId, postId, page = 0, perPage = PER_PAGE_DEFAULT, fetchThreads = true, collapsedThreads = false, collapsedThreadsExtended = false) => {
+        return this.doFetch(`${this.getChannelRoute(channelId)}/posts${(0, helpers_1.buildQueryString)({ after: postId, page, per_page: perPage, skipFetchThreads: !fetchThreads, collapsedThreads, collapsedThreadsExtended })}`, { method: 'get' });
+    };
+    getUserThreads = (userId = 'me', teamId, { before = '', after = '', perPage = PER_PAGE_DEFAULT, extended = false, deleted = false, unread = false, since = 0, totalsOnly = false, threadsOnly = false, }) => {
+        return this.doFetch(`${this.getUserThreadsRoute(userId, teamId)}${(0, helpers_1.buildQueryString)({ before, after, per_page: perPage, extended, deleted, unread, since, totalsOnly, threadsOnly })}`, { method: 'get' });
+    };
+    getUserThread = (userId, teamId, threadId, extended = false) => {
+        const url = `${this.getUserThreadRoute(userId, teamId, threadId)}`;
+        return this.doFetch(`${url}${(0, helpers_1.buildQueryString)({ extended })}`, { method: 'get' });
+    };
+    updateThreadsReadForUser = (userId, teamId) => {
+        const url = `${this.getUserThreadsRoute(userId, teamId)}/read`;
+        return this.doFetch(url, { method: 'put' });
+    };
+    updateThreadReadForUser = (userId, teamId, threadId, timestamp) => {
+        const url = `${this.getUserThreadRoute(userId, teamId, threadId)}/read/${timestamp}`;
+        return this.doFetch(url, { method: 'put' });
+    };
+    markThreadAsUnreadForUser = (userId, teamId, threadId, postId) => {
+        const url = `${this.getUserThreadRoute(userId, teamId, threadId)}/set_unread/${postId}`;
+        return this.doFetch(url, { method: 'post' });
+    };
+    updateThreadFollowForUser = (userId, teamId, threadId, state) => {
+        const url = this.getUserThreadRoute(userId, teamId, threadId) + '/following';
+        return this.doFetch(url, { method: state ? 'put' : 'delete' });
+    };
+    getFileInfosForPost = (postId) => {
+        return this.doFetch(`${this.getPostRoute(postId)}/files/info`, { method: 'get' });
+    };
+    getFlaggedPosts = (userId, channelId = '', teamId = '', page = 0, perPage = PER_PAGE_DEFAULT) => {
+        this.trackEvent('api', 'api_posts_get_flagged', { team_id: teamId });
+        return this.doFetch(`${this.getUserRoute(userId)}/posts/flagged${(0, helpers_1.buildQueryString)({ channel_id: channelId, team_id: teamId, page, per_page: perPage })}`, { method: 'get' });
+    };
+    getPinnedPosts = (channelId) => {
+        this.trackEvent('api', 'api_posts_get_pinned', { channel_id: channelId });
+        return this.doFetch(`${this.getChannelRoute(channelId)}/pinned`, { method: 'get' });
+    };
+    markPostAsUnread = (userId, postId) => {
+        this.trackEvent('api', 'api_post_set_unread_post');
+        return this.doFetch(`${this.getUserRoute(userId)}/posts/${postId}/set_unread`, { method: 'post', body: JSON.stringify({ collapsed_threads_supported: true }) });
+    };
+    addPostReminder = (userId, postId, timestamp) => {
+        this.trackEvent('api', 'api_post_set_reminder');
+        return this.doFetch(`${this.getUserRoute(userId)}/posts/${postId}/reminder`, { method: 'post', body: JSON.stringify({ target_time: timestamp }) });
+    };
+    pinPost = (postId) => {
+        this.trackEvent('api', 'api_posts_pin');
+        return this.doFetch(`${this.getPostRoute(postId)}/pin`, { method: 'post' });
+    };
+    unpinPost = (postId) => {
+        this.trackEvent('api', 'api_posts_unpin');
+        return this.doFetch(`${this.getPostRoute(postId)}/unpin`, { method: 'post' });
+    };
+    getPostInfo = (postId) => {
+        return this.doFetch(`${this.getPostRoute(postId)}/info`, { method: 'get' });
+    };
+    getPostsByIds = (postIds) => {
+        return this.doFetch(`${this.getPostsRoute()}/ids`, { method: 'post', body: JSON.stringify(postIds) });
+    };
+    getPostEditHistory = (postId) => {
+        return this.doFetch(`${this.getPostRoute(postId)}/edit_history`, { method: 'get' });
+    };
+    addReaction = (userId, postId, emojiName) => {
+        this.trackEvent('api', 'api_reactions_save', { post_id: postId });
+        return this.doFetch(`${this.getReactionsRoute()}`, { method: 'post', body: JSON.stringify({ user_id: userId, post_id: postId, emoji_name: emojiName }) });
+    };
+    removeReaction = (userId, postId, emojiName) => {
+        this.trackEvent('api', 'api_reactions_delete', { post_id: postId });
+        return this.doFetch(`${this.getUserRoute(userId)}/posts/${postId}/reactions/${emojiName}`, { method: 'delete' });
+    };
+    getReactionsForPost = (postId) => {
+        return this.doFetch(`${this.getPostRoute(postId)}/reactions`, { method: 'get' });
+    };
+    searchPostsWithParams = (teamId, params) => {
+        this.trackEvent('api', 'api_posts_search', { team_id: teamId });
+        let route = `${this.getPostsRoute()}/search`;
+        if (teamId) {
+            route = `${this.getTeamRoute(teamId)}/posts/search`;
+        }
+        return this.doFetch(route, { method: 'post', body: JSON.stringify(params) });
+    };
+    searchPosts = (teamId, terms, isOrSearch) => {
+        return this.searchPostsWithParams(teamId, { terms, is_or_search: isOrSearch });
+    };
+    searchFilesWithParams = (teamId, params) => {
+        this.trackEvent('api', 'api_files_search', { team_id: teamId });
+        return this.doFetch(`${this.getTeamRoute(teamId)}/files/search`, { method: 'post', body: JSON.stringify(params) });
+    };
+    searchFiles = (teamId, terms, isOrSearch) => {
+        return this.searchFilesWithParams(teamId, { terms, is_or_search: isOrSearch });
+    };
+    doPostAction = (postId, actionId, selectedOption = '') => {
+        return this.doPostActionWithCookie(postId, actionId, '', selectedOption);
+    };
+    doPostActionWithCookie = (postId, actionId, actionCookie, selectedOption = '') => {
+        if (selectedOption) {
+            this.trackEvent('api', 'api_interactive_messages_menu_selected');
+        }
+        else {
+            this.trackEvent('api', 'api_interactive_messages_button_clicked');
+        }
+        const msg = {
+            selected_option: selectedOption,
+        };
+        if (actionCookie !== '') {
+            msg.cookie = actionCookie;
+        }
+        return this.doFetch(`${this.getPostRoute(postId)}/actions/${encodeURIComponent(actionId)}`, { method: 'post', body: JSON.stringify(msg) });
+    };
+    // Files Routes
+    getFileUrl(fileId, timestamp) {
+        let url = `${this.getFileRoute(fileId)}`;
+        if (timestamp) {
+            url += `?${timestamp}`;
+        }
+        return url;
+    }
+    getFileThumbnailUrl(fileId, timestamp) {
+        let url = `${this.getFileRoute(fileId)}/thumbnail`;
+        if (timestamp) {
+            url += `?${timestamp}`;
+        }
+        return url;
+    }
+    getFilePreviewUrl(fileId, timestamp) {
+        let url = `${this.getFileRoute(fileId)}/preview`;
+        if (timestamp) {
+            url += `?${timestamp}`;
+        }
+        return url;
+    }
+    uploadFile = (fileFormData, isBookmark) => {
+        this.trackEvent('api', 'api_files_upload');
+        const request = {
+            method: 'post',
+            body: fileFormData,
+        };
+        return this.doFetch(`${this.getFilesRoute()}${(0, helpers_1.buildQueryString)({ bookmark: isBookmark })}`, request);
+    };
+    getFilePublicLink = (fileId) => {
+        return this.doFetch(`${this.getFileRoute(fileId)}/link`, { method: 'get' });
+    };
+    acknowledgePost = (postId, userId) => {
+        this.trackEvent('api', 'api_posts_ack');
+        return this.doFetch(`${this.getUserRoute(userId)}/posts/${postId}/ack`, { method: 'post' });
+    };
+    unacknowledgePost = (postId, userId) => {
+        this.trackEvent('api', 'api_posts_unack');
+        return this.doFetch(`${this.getUserRoute(userId)}/posts/${postId}/ack`, { method: 'delete' });
+    };
+    // Preference Routes
+    savePreferences = (userId, preferences) => {
+        return this.doFetch(`${this.getPreferencesRoute(userId)}`, { method: 'put', body: JSON.stringify(preferences) });
+    };
+    getMyPreferences = () => {
+        return this.doFetch(`${this.getPreferencesRoute('me')}`, { method: 'get' });
+    };
+    getUserPreferences = (userId) => {
+        return this.doFetch(`${this.getPreferencesRoute(userId)}`, { method: 'get' });
+    };
+    deletePreferences = (userId, preferences) => {
+        return this.doFetch(`${this.getPreferencesRoute(userId)}/delete`, { method: 'post', body: JSON.stringify(preferences) });
+    };
+    // General Routes
+    ping = (getServerStatus, deviceId) => {
+        return this.doFetch(`${this.getBaseRoute()}/system/ping${(0, helpers_1.buildQueryString)({ get_server_status: getServerStatus, device_id: deviceId, use_rest_semantics: true })}`, { method: 'get' });
+    };
+    upgradeToEnterprise = async () => {
+        return this.doFetch(`${this.getBaseRoute()}/upgrade_to_enterprise`, { method: 'post' });
+    };
+    upgradeToEnterpriseStatus = async () => {
+        return this.doFetch(`${this.getBaseRoute()}/upgrade_to_enterprise/status`, { method: 'get' });
+    };
+    restartServer = async () => {
+        return this.doFetch(`${this.getBaseRoute()}/restart`, { method: 'post' });
+    };
+    logClientError = (message, level = client4_1.LogLevel.Error) => {
+        const url = `${this.getBaseRoute()}/logs`;
+        if (!this.enableLogging) {
+            throw new ClientError(this.getUrl(), {
+                message: 'Logging disabled.',
+                url,
+            });
+        }
+        return this.doFetch(url, { method: 'post', body: JSON.stringify({ message, level }) });
+    };
+    getClientConfigOld = () => {
+        return this.doFetch(`${this.getBaseRoute()}/config/client?format=old`, { method: 'get' });
+    };
+    getClientLicenseOld = () => {
+        return this.doFetch(`${this.getBaseRoute()}/license/client?format=old`, { method: 'get' });
+    };
+    setFirstAdminVisitMarketplaceStatus = async () => {
+        return this.doFetch(`${this.getPluginsRoute()}/marketplace/first_admin_visit`, { method: 'post', body: JSON.stringify({ first_admin_visit_marketplace_status: true }) });
+    };
+    getFirstAdminVisitMarketplaceStatus = async () => {
+        return this.doFetch(`${this.getPluginsRoute()}/marketplace/first_admin_visit`, { method: 'get' });
+    };
+    getFirstAdminSetupComplete = async () => {
+        return this.doFetch(`${this.getSystemRoute()}/onboarding/complete`, { method: 'get' });
+    };
+    getTranslations = (url) => {
+        return this.doFetch(url, { method: 'get' });
+    };
+    getWebSocketUrl = () => {
+        return `${this.getBaseRoute()}/websocket`;
+    };
+    // Integration Routes
+    createIncomingWebhook = (hook) => {
+        this.trackEvent('api', 'api_integrations_created', { team_id: hook.team_id });
+        return this.doFetch(`${this.getIncomingHooksRoute()}`, { method: 'post', body: JSON.stringify(hook) });
+    };
+    getIncomingWebhook = (hookId) => {
+        return this.doFetch(`${this.getIncomingHookRoute(hookId)}`, { method: 'get' });
+    };
+    getIncomingWebhooks = (teamId = '', page = 0, perPage = PER_PAGE_DEFAULT, includeTotalCount = false) => {
+        const queryParams = {
+            page,
+            per_page: perPage,
+            include_total_count: includeTotalCount,
+        };
+        if (teamId) {
+            queryParams.team_id = teamId;
+        }
+        return this.doFetch(`${this.getIncomingHooksRoute()}${(0, helpers_1.buildQueryString)(queryParams)}`, { method: 'get' });
+    };
+    removeIncomingWebhook = (hookId) => {
+        this.trackEvent('api', 'api_integrations_deleted');
+        return this.doFetch(`${this.getIncomingHookRoute(hookId)}`, { method: 'delete' });
+    };
+    updateIncomingWebhook = (hook) => {
+        this.trackEvent('api', 'api_integrations_updated', { team_id: hook.team_id });
+        return this.doFetch(`${this.getIncomingHookRoute(hook.id)}`, { method: 'put', body: JSON.stringify(hook) });
+    };
+    createOutgoingWebhook = (hook) => {
+        this.trackEvent('api', 'api_integrations_created', { team_id: hook.team_id });
+        return this.doFetch(`${this.getOutgoingHooksRoute()}`, { method: 'post', body: JSON.stringify(hook) });
+    };
+    getOutgoingWebhook = (hookId) => {
+        return this.doFetch(`${this.getOutgoingHookRoute(hookId)}`, { method: 'get' });
+    };
+    getOutgoingWebhooks = (channelId = '', teamId = '', page = 0, perPage = PER_PAGE_DEFAULT) => {
+        const queryParams = {
+            page,
+            per_page: perPage,
+        };
+        if (channelId) {
+            queryParams.channel_id = channelId;
+        }
+        if (teamId) {
+            queryParams.team_id = teamId;
+        }
+        return this.doFetch(`${this.getOutgoingHooksRoute()}${(0, helpers_1.buildQueryString)(queryParams)}`, { method: 'get' });
+    };
+    removeOutgoingWebhook = (hookId) => {
+        this.trackEvent('api', 'api_integrations_deleted');
+        return this.doFetch(`${this.getOutgoingHookRoute(hookId)}`, { method: 'delete' });
+    };
+    updateOutgoingWebhook = (hook) => {
+        this.trackEvent('api', 'api_integrations_updated', { team_id: hook.team_id });
+        return this.doFetch(`${this.getOutgoingHookRoute(hook.id)}`, { method: 'put', body: JSON.stringify(hook) });
+    };
+    regenOutgoingHookToken = (id) => {
+        return this.doFetch(`${this.getOutgoingHookRoute(id)}/regen_token`, { method: 'post' });
+    };
+    getCommandsList = (teamId) => {
+        return this.doFetch(`${this.getCommandsRoute()}?team_id=${teamId}`, { method: 'get' });
+    };
+    getCommandAutocompleteSuggestionsList = (userInput, teamId, commandArgs) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/commands/autocomplete_suggestions${(0, helpers_1.buildQueryString)({ ...commandArgs, user_input: userInput })}`, { method: 'get' });
+    };
+    getAutocompleteCommandsList = (teamId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getTeamRoute(teamId)}/commands/autocomplete${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getCustomTeamCommands = (teamId) => {
+        return this.doFetch(`${this.getCommandsRoute()}?team_id=${teamId}&custom_only=true`, { method: 'get' });
+    };
+    executeCommand = (command, commandArgs) => {
+        this.trackEvent('api', 'api_integrations_used');
+        return this.doFetch(`${this.getCommandsRoute()}/execute`, { method: 'post', body: JSON.stringify({ command, ...commandArgs }) });
+    };
+    addCommand = (command) => {
+        this.trackEvent('api', 'api_integrations_created');
+        return this.doFetch(`${this.getCommandsRoute()}`, { method: 'post', body: JSON.stringify(command) });
+    };
+    editCommand = (command) => {
+        this.trackEvent('api', 'api_integrations_created');
+        return this.doFetch(`${this.getCommandsRoute()}/${command.id}`, { method: 'put', body: JSON.stringify(command) });
+    };
+    regenCommandToken = (id) => {
+        return this.doFetch(`${this.getCommandsRoute()}/${id}/regen_token`, { method: 'put' });
+    };
+    deleteCommand = (id) => {
+        this.trackEvent('api', 'api_integrations_deleted');
+        return this.doFetch(`${this.getCommandsRoute()}/${id}`, { method: 'delete' });
+    };
+    createOAuthApp = (app) => {
+        this.trackEvent('api', 'api_apps_register');
+        return this.doFetch(`${this.getOAuthAppsRoute()}`, { method: 'post', body: JSON.stringify(app) });
+    };
+    editOAuthApp = (app) => {
+        return this.doFetch(`${this.getOAuthAppsRoute()}/${app.id}`, { method: 'put', body: JSON.stringify(app) });
+    };
+    getOAuthApps = (page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getOAuthAppsRoute()}${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getAppsOAuthAppIDs = () => {
+        return this.doFetch(`${this.getAppsProxyRoute()}/api/v1/oauth-app-ids`, { method: 'get' });
+    };
+    getAppsBotIDs = () => {
+        return this.doFetch(`${this.getAppsProxyRoute()}/api/v1/bot-ids`, { method: 'get' });
+    };
+    getOAuthApp = (appId) => {
+        return this.doFetch(`${this.getOAuthAppRoute(appId)}`, { method: 'get' });
+    };
+    getOutgoingOAuthConnections = (teamId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getOutgoingOAuthConnectionsRoute()}${(0, helpers_1.buildQueryString)({ team_id: teamId, page, per_page: perPage })}`, { method: 'get' });
+    };
+    getOutgoingOAuthConnectionsForAudience = (teamId, audience, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getOutgoingOAuthConnectionsRoute()}${(0, helpers_1.buildQueryString)({ team_id: teamId, page, per_page: perPage, audience })}`, { method: 'get' });
+    };
+    getOutgoingOAuthConnection = (teamId, connectionId) => {
+        return this.doFetch(`${this.getOutgoingOAuthConnectionRoute(connectionId)}${(0, helpers_1.buildQueryString)({ team_id: teamId })}`, { method: 'get' });
+    };
+    createOutgoingOAuthConnection = (teamId, connection) => {
+        this.trackEvent('api', 'api_outgoing_oauth_connection_register');
+        return this.doFetch(`${this.getOutgoingOAuthConnectionsRoute()}${(0, helpers_1.buildQueryString)({ team_id: teamId })}`, { method: 'post', body: JSON.stringify(connection) });
+    };
+    editOutgoingOAuthConnection = (teamId, connection) => {
+        return this.doFetch(`${this.getOutgoingOAuthConnectionsRoute()}/${connection.id}${(0, helpers_1.buildQueryString)({ team_id: teamId })}`, { method: 'put', body: JSON.stringify(connection) });
+    };
+    validateOutgoingOAuthConnection = (teamId, connection) => {
+        return this.doFetch(`${this.getOutgoingOAuthConnectionsRoute()}/validate${(0, helpers_1.buildQueryString)({ team_id: teamId })}`, { method: 'post', body: JSON.stringify(connection) });
+    };
+    getOAuthAppInfo = (appId) => {
+        return this.doFetch(`${this.getOAuthAppRoute(appId)}/info`, { method: 'get' });
+    };
+    deleteOAuthApp = (appId) => {
+        this.trackEvent('api', 'api_apps_delete');
+        return this.doFetch(`${this.getOAuthAppRoute(appId)}`, { method: 'delete' });
+    };
+    regenOAuthAppSecret = (appId) => {
+        return this.doFetch(`${this.getOAuthAppRoute(appId)}/regen_secret`, { method: 'post' });
+    };
+    deleteOutgoingOAuthConnection = (connectionId) => {
+        this.trackEvent('api', 'api_apps_delete');
+        return this.doFetch(`${this.getOutgoingOAuthConnectionRoute(connectionId)}`, { method: 'delete' });
+    };
+    submitInteractiveDialog = (data) => {
+        this.trackEvent('api', 'api_interactive_messages_dialog_submitted');
+        return this.doFetch(`${this.getBaseRoute()}/actions/dialogs/submit`, { method: 'post', body: JSON.stringify(data) });
+    };
+    // Emoji Routes
+    createCustomEmoji = (emoji, imageData) => {
+        this.trackEvent('api', 'api_emoji_custom_add');
+        const formData = new form_data_1.default();
+        formData.append('image', imageData);
+        formData.append('emoji', JSON.stringify(emoji));
+        const request = {
+            method: 'post',
+            body: formData,
+        };
+        return this.doFetch(`${this.getEmojisRoute()}`, request);
+    };
+    getCustomEmoji = (id) => {
+        return this.doFetch(`${this.getEmojisRoute()}/${id}`, { method: 'get' });
+    };
+    getCustomEmojiByName = (name) => {
+        return this.doFetch(`${this.getEmojisRoute()}/name/${name}`, { method: 'get' });
+    };
+    getCustomEmojisByNames = (names) => {
+        return this.doFetch(`${this.getEmojisRoute()}/names`, { method: 'post', body: JSON.stringify(names) });
+    };
+    getCustomEmojis = (page = 0, perPage = PER_PAGE_DEFAULT, sort = '') => {
+        return this.doFetch(`${this.getEmojisRoute()}${(0, helpers_1.buildQueryString)({ page, per_page: perPage, sort })}`, { method: 'get' });
+    };
+    deleteCustomEmoji = (emojiId) => {
+        this.trackEvent('api', 'api_emoji_custom_delete');
+        return this.doFetch(`${this.getEmojiRoute(emojiId)}`, { method: 'delete' });
+    };
+    getSystemEmojiImageUrl = (filename) => {
+        const extension = filename.endsWith('.png') ? '' : '.png';
+        return `${this.url}/static/emoji/${filename}${extension}`;
+    };
+    getCustomEmojiImageUrl = (id) => {
+        return `${this.getEmojiRoute(id)}/image`;
+    };
+    searchCustomEmoji = (term, options = {}) => {
+        return this.doFetch(`${this.getEmojisRoute()}/search`, { method: 'post', body: JSON.stringify({ term, ...options }) });
+    };
+    autocompleteCustomEmoji = (name) => {
+        return this.doFetch(`${this.getEmojisRoute()}/autocomplete${(0, helpers_1.buildQueryString)({ name })}`, { method: 'get' });
+    };
+    // Data Retention
+    getDataRetentionPolicy = () => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policy`, { method: 'get' });
+    };
+    getDataRetentionCustomPolicies = (page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getDataRetentionCustomPolicy = (id) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${id}`, { method: 'get' });
+    };
+    deleteDataRetentionCustomPolicy = (id) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${id}`, { method: 'delete' });
+    };
+    searchDataRetentionCustomPolicyChannels = (policyId, term, opts) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${policyId}/channels/search`, { method: 'post', body: JSON.stringify({ term, ...opts }) });
+    };
+    searchDataRetentionCustomPolicyTeams = (policyId, term, opts) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${policyId}/teams/search`, { method: 'post', body: JSON.stringify({ term, ...opts }) });
+    };
+    getDataRetentionCustomPolicyTeams = (id, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${id}/teams${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getDataRetentionCustomPolicyChannels = (id, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${id}/channels${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    createDataRetentionPolicy = (policy) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies`, { method: 'post', body: JSON.stringify(policy) });
+    };
+    updateDataRetentionPolicy = (id, policy) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${id}`, { method: 'PATCH', body: JSON.stringify(policy) });
+    };
+    addDataRetentionPolicyTeams = (id, teams) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${id}/teams`, { method: 'post', body: JSON.stringify(teams) });
+    };
+    removeDataRetentionPolicyTeams = (id, teams) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${id}/teams`, { method: 'delete', body: JSON.stringify(teams) });
+    };
+    addDataRetentionPolicyChannels = (id, channels) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${id}/channels`, { method: 'post', body: JSON.stringify(channels) });
+    };
+    removeDataRetentionPolicyChannels = (id, channels) => {
+        return this.doFetch(`${this.getDataRetentionRoute()}/policies/${id}/channels`, { method: 'delete', body: JSON.stringify(channels) });
+    };
+    // Jobs Routes
+    getJob = (id) => {
+        return this.doFetch(`${this.getJobsRoute()}/${id}`, { method: 'get' });
+    };
+    getJobs = (page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getJobsRoute()}${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getJobsByType = (type, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getJobsRoute()}/type/${type}${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    createJob = (job) => {
+        return this.doFetch(`${this.getJobsRoute()}`, { method: 'post', body: JSON.stringify(job) });
+    };
+    cancelJob = (id) => {
+        return this.doFetch(`${this.getJobsRoute()}/${id}/cancel`, { method: 'post' });
+    };
+    // Admin Routes
+    getLogs = (logFilter) => {
+        return this.doFetch(`${this.getBaseRoute()}/logs/query`, { method: 'post', body: JSON.stringify(logFilter) });
+    };
+    getPlainLogs = (page = 0, perPage = LOGS_PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getBaseRoute()}/logs${(0, helpers_1.buildQueryString)({ page, logs_per_page: perPage })}`, { method: 'get' });
+    };
+    getAudits = (page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getBaseRoute()}/audits${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getConfig = () => {
+        return this.doFetch(`${this.getBaseRoute()}/config`, { method: 'get' });
+    };
+    updateConfig = (config) => {
+        return this.doFetch(`${this.getBaseRoute()}/config`, { method: 'put', body: JSON.stringify(config) });
+    };
+    patchConfig = (patch) => {
+        return this.doFetch(`${this.getBaseRoute()}/config/patch`, { method: 'put', body: JSON.stringify(patch) });
+    };
+    reloadConfig = () => {
+        return this.doFetch(`${this.getBaseRoute()}/config/reload`, { method: 'post' });
+    };
+    getEnvironmentConfig = () => {
+        return this.doFetch(`${this.getBaseRoute()}/config/environment`, { method: 'get' });
+    };
+    testEmail = (config) => {
+        return this.doFetch(`${this.getBaseRoute()}/email/test`, { method: 'post', body: JSON.stringify(config) });
+    };
+    testSiteURL = (siteURL) => {
+        return this.doFetch(`${this.getBaseRoute()}/site_url/test`, { method: 'post', body: JSON.stringify({ site_url: siteURL }) });
+    };
+    testS3Connection = (config) => {
+        return this.doFetch(`${this.getBaseRoute()}/file/s3_test`, { method: 'post', body: JSON.stringify(config) });
+    };
+    invalidateCaches = () => {
+        return this.doFetch(`${this.getBaseRoute()}/caches/invalidate`, { method: 'post' });
+    };
+    recycleDatabase = () => {
+        return this.doFetch(`${this.getBaseRoute()}/database/recycle`, { method: 'post' });
+    };
+    createComplianceReport = (job) => {
+        return this.doFetch(`${this.getBaseRoute()}/compliance/reports`, { method: 'post', body: JSON.stringify(job) });
+    };
+    getComplianceReport = (reportId) => {
+        return this.doFetch(`${this.getBaseRoute()}/compliance/reports/${reportId}`, { method: 'get' });
+    };
+    getComplianceReports = (page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getBaseRoute()}/compliance/reports${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    uploadBrandImage = (imageData) => {
+        const formData = new form_data_1.default();
+        formData.append('image', imageData);
+        const request = {
+            method: 'post',
+            body: formData,
+        };
+        return this.doFetch(`${this.getBrandRoute()}/image`, request);
+    };
+    deleteBrandImage = () => {
+        return this.doFetch(`${this.getBrandRoute()}/image`, { method: 'delete' });
+    };
+    getClusterStatus = () => {
+        return this.doFetch(`${this.getBaseRoute()}/cluster/status`, { method: 'get' });
+    };
+    testLdap = () => {
+        return this.doFetch(`${this.getBaseRoute()}/ldap/test`, { method: 'post' });
+    };
+    syncLdap = () => {
+        return this.doFetch(`${this.getBaseRoute()}/ldap/sync`, { method: 'post' });
+    };
+    getLdapGroups = (page = 0, perPage = PER_PAGE_DEFAULT, opts = {}) => {
+        const query = { page, per_page: perPage, ...opts };
+        return this.doFetch(`${this.getBaseRoute()}/ldap/groups${(0, helpers_1.buildQueryString)(query)}`, { method: 'get' });
+    };
+    linkLdapGroup = (key) => {
+        return this.doFetch(`${this.getBaseRoute()}/ldap/groups/${encodeURI(key)}/link`, { method: 'post' });
+    };
+    unlinkLdapGroup = (key) => {
+        return this.doFetch(`${this.getBaseRoute()}/ldap/groups/${encodeURI(key)}/link`, { method: 'delete' });
+    };
+    getSamlCertificateStatus = () => {
+        return this.doFetch(`${this.getBaseRoute()}/saml/certificate/status`, { method: 'get' });
+    };
+    uploadPublicSamlCertificate = (fileData) => {
+        const formData = new form_data_1.default();
+        formData.append('certificate', fileData);
+        return this.doFetch(`${this.getBaseRoute()}/saml/certificate/public`, {
+            method: 'post',
+            body: formData,
+        });
+    };
+    uploadPrivateSamlCertificate = (fileData) => {
+        const formData = new form_data_1.default();
+        formData.append('certificate', fileData);
+        return this.doFetch(`${this.getBaseRoute()}/saml/certificate/private`, {
+            method: 'post',
+            body: formData,
+        });
+    };
+    uploadPublicLdapCertificate = (fileData) => {
+        const formData = new form_data_1.default();
+        formData.append('certificate', fileData);
+        return this.doFetch(`${this.getBaseRoute()}/ldap/certificate/public`, {
+            method: 'post',
+            body: formData,
+        });
+    };
+    uploadPrivateLdapCertificate = (fileData) => {
+        const formData = new form_data_1.default();
+        formData.append('certificate', fileData);
+        return this.doFetch(`${this.getBaseRoute()}/ldap/certificate/private`, {
+            method: 'post',
+            body: formData,
+        });
+    };
+    uploadIdpSamlCertificate = (fileData) => {
+        const formData = new form_data_1.default();
+        formData.append('certificate', fileData);
+        return this.doFetch(`${this.getBaseRoute()}/saml/certificate/idp`, {
+            method: 'post',
+            body: formData,
+        });
+    };
+    deletePublicSamlCertificate = () => {
+        return this.doFetch(`${this.getBaseRoute()}/saml/certificate/public`, { method: 'delete' });
+    };
+    deletePrivateSamlCertificate = () => {
+        return this.doFetch(`${this.getBaseRoute()}/saml/certificate/private`, { method: 'delete' });
+    };
+    deletePublicLdapCertificate = () => {
+        return this.doFetch(`${this.getBaseRoute()}/ldap/certificate/public`, { method: 'delete' });
+    };
+    deletePrivateLdapCertificate = () => {
+        return this.doFetch(`${this.getBaseRoute()}/ldap/certificate/private`, { method: 'delete' });
+    };
+    deleteIdpSamlCertificate = () => {
+        return this.doFetch(`${this.getBaseRoute()}/saml/certificate/idp`, { method: 'delete' });
+    };
+    testElasticsearch = (config) => {
+        return this.doFetch(`${this.getBaseRoute()}/elasticsearch/test`, { method: 'post', body: JSON.stringify(config) });
+    };
+    purgeElasticsearchIndexes = (indexes) => {
+        return this.doFetch(`${this.getBaseRoute()}/elasticsearch/purge_indexes${indexes && indexes.length > 0 ? '?index=' + indexes.join(',') : ''}`, { method: 'post' });
+    };
+    purgeBleveIndexes = () => {
+        return this.doFetch(`${this.getBaseRoute()}/bleve/purge_indexes`, { method: 'post' });
+    };
+    uploadLicense = (fileData) => {
+        this.trackEvent('api', 'api_license_upload');
+        const formData = new form_data_1.default();
+        formData.append('license', fileData);
+        const request = {
+            method: 'post',
+            body: formData,
+        };
+        return this.doFetch(`${this.getBaseRoute()}/license`, request);
+    };
+    requestTrialLicense = (body) => {
+        return this.doFetchWithResponse(`${this.getBaseRoute()}/trial-license`, { method: 'POST', body: JSON.stringify(body) });
+    };
+    removeLicense = () => {
+        return this.doFetch(`${this.getBaseRoute()}/license`, { method: 'delete' });
+    };
+    getPrevTrialLicense = () => {
+        return this.doFetch(`${this.getBaseRoute()}/trial-license/prev`, { method: 'get' });
+    };
+    getAnalytics = (name = 'standard', teamId = '') => {
+        return this.doFetch(`${this.getBaseRoute()}/analytics/old${(0, helpers_1.buildQueryString)({ name, team_id: teamId })}`, { method: 'get' });
+    };
+    // Role Routes
+    getRole = (roleId) => {
+        return this.doFetch(`${this.getRolesRoute()}/${roleId}`, { method: 'get' });
+    };
+    getRoleByName = (roleName) => {
+        return this.doFetch(`${this.getRolesRoute()}/name/${roleName}`, { method: 'get' });
+    };
+    getRolesByNames = (rolesNames) => {
+        return this.doFetch(`${this.getRolesRoute()}/names`, { method: 'post', body: JSON.stringify(rolesNames) });
+    };
+    patchRole = (roleId, rolePatch) => {
+        return this.doFetch(`${this.getRolesRoute()}/${roleId}/patch`, { method: 'put', body: JSON.stringify(rolePatch) });
+    };
+    // Scheme Routes
+    getSchemes = (scope = '', page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getSchemesRoute()}${(0, helpers_1.buildQueryString)({ scope, page, per_page: perPage })}`, { method: 'get' });
+    };
+    createScheme = (scheme) => {
+        this.trackEvent('api', 'api_schemes_create');
+        return this.doFetch(`${this.getSchemesRoute()}`, { method: 'post', body: JSON.stringify(scheme) });
+    };
+    getScheme = (schemeId) => {
+        return this.doFetch(`${this.getSchemesRoute()}/${schemeId}`, { method: 'get' });
+    };
+    deleteScheme = (schemeId) => {
+        this.trackEvent('api', 'api_schemes_delete');
+        return this.doFetch(`${this.getSchemesRoute()}/${schemeId}`, { method: 'delete' });
+    };
+    patchScheme = (schemeId, schemePatch) => {
+        this.trackEvent('api', 'api_schemes_patch', { scheme_id: schemeId });
+        return this.doFetch(`${this.getSchemesRoute()}/${schemeId}/patch`, { method: 'put', body: JSON.stringify(schemePatch) });
+    };
+    getSchemeTeams = (schemeId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getSchemesRoute()}/${schemeId}/teams${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getSchemeChannels = (schemeId, page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getSchemesRoute()}/${schemeId}/channels${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    // Plugin Routes
+    uploadPlugin = async (fileData, force = false) => {
+        this.trackEvent('api', 'api_plugin_upload');
+        const formData = new form_data_1.default();
+        if (force) {
+            formData.append('force', 'true');
+        }
+        formData.append('plugin', fileData);
+        const request = {
+            method: 'post',
+            body: formData,
+        };
+        return this.doFetch(this.getPluginsRoute(), request);
+    };
+    installPluginFromUrl = (pluginDownloadUrl, force = false) => {
+        this.trackEvent('api', 'api_install_plugin');
+        const queryParams = { plugin_download_url: pluginDownloadUrl, force };
+        return this.doFetch(`${this.getPluginsRoute()}/install_from_url${(0, helpers_1.buildQueryString)(queryParams)}`, { method: 'post' });
+    };
+    getPlugins = () => {
+        return this.doFetch(this.getPluginsRoute(), { method: 'get' });
+    };
+    getRemoteMarketplacePlugins = (filter) => {
+        return this.doFetch(`${this.getPluginsMarketplaceRoute()}${(0, helpers_1.buildQueryString)({ filter: filter || '', remote_only: true })}`, { method: 'get' });
+    };
+    getMarketplacePlugins = (filter, localOnly = false) => {
+        return this.doFetch(`${this.getPluginsMarketplaceRoute()}${(0, helpers_1.buildQueryString)({ filter: filter || '', local_only: localOnly })}`, { method: 'get' });
+    };
+    installMarketplacePlugin = (id) => {
+        this.trackEvent('api', 'api_install_marketplace_plugin');
+        return this.doFetch(`${this.getPluginsMarketplaceRoute()}`, { method: 'post', body: JSON.stringify({ id }) });
+    };
+    getMarketplaceApps = (filter) => {
+        return this.doFetch(`${this.getAppsProxyRoute()}/api/v1/marketplace${(0, helpers_1.buildQueryString)({ filter: filter || '' })}`, { method: 'get' });
+    };
+    getPluginStatuses = () => {
+        return this.doFetch(`${this.getPluginsRoute()}/statuses`, { method: 'get' });
+    };
+    removePlugin = (pluginId) => {
+        return this.doFetch(this.getPluginRoute(pluginId), { method: 'delete' });
+    };
+    getWebappPlugins = () => {
+        return this.doFetch(`${this.getPluginsRoute()}/webapp`, { method: 'get' });
+    };
+    enablePlugin = (pluginId) => {
+        return this.doFetch(`${this.getPluginRoute(pluginId)}/enable`, { method: 'post' });
+    };
+    disablePlugin = (pluginId) => {
+        return this.doFetch(`${this.getPluginRoute(pluginId)}/disable`, { method: 'post' });
+    };
+    // Groups
+    linkGroupSyncable = (groupID, syncableID, syncableType, patch) => {
+        return this.doFetch(`${this.getGroupRoute(groupID)}/${syncableType}s/${syncableID}/link`, { method: 'post', body: JSON.stringify(patch) });
+    };
+    unlinkGroupSyncable = (groupID, syncableID, syncableType) => {
+        return this.doFetch(`${this.getGroupRoute(groupID)}/${syncableType}s/${syncableID}/link`, { method: 'delete' });
+    };
+    getGroupSyncables = (groupID, syncableType) => {
+        return this.doFetch(`${this.getGroupRoute(groupID)}/${syncableType}s`, { method: 'get' });
+    };
+    getGroup = (groupID, includeMemberCount = false) => {
+        return this.doFetch(`${this.getGroupRoute(groupID)}${(0, helpers_1.buildQueryString)({ include_member_count: includeMemberCount })}`, { method: 'get' });
+    };
+    getGroupStats = (groupID) => {
+        return this.doFetch(`${this.getGroupRoute(groupID)}/stats`, { method: 'get' });
+    };
+    getGroups = (opts) => {
+        return this.doFetch(`${this.getGroupsRoute()}${(0, helpers_1.buildQueryString)(opts)}`, { method: 'get' });
+    };
+    getGroupsByUserId = (userID) => {
+        return this.doFetch(`${this.getUsersRoute()}/${userID}/groups`, { method: 'get' });
+    };
+    getGroupsNotAssociatedToTeam = (teamID, q = '', page = 0, perPage = PER_PAGE_DEFAULT, source = 'ldap') => {
+        this.trackEvent('api', 'api_groups_get_not_associated_to_team', { team_id: teamID });
+        return this.doFetch(`${this.getGroupsRoute()}${(0, helpers_1.buildQueryString)({ not_associated_to_team: teamID, page, per_page: perPage, q, include_member_count: true, group_source: source })}`, { method: 'get' });
+    };
+    getGroupsNotAssociatedToChannel = (channelID, q = '', page = 0, perPage = PER_PAGE_DEFAULT, filterParentTeamPermitted = false, source = 'ldap') => {
+        this.trackEvent('api', 'api_groups_get_not_associated_to_channel', { channel_id: channelID });
+        const query = {
+            not_associated_to_channel: channelID,
+            page,
+            per_page: perPage,
+            q,
+            include_member_count: true,
+            filter_parent_team_permitted: filterParentTeamPermitted,
+            group_source: source,
+        };
+        return this.doFetch(`${this.getGroupsRoute()}${(0, helpers_1.buildQueryString)(query)}`, { method: 'get' });
+    };
+    createGroupWithUserIds = (group) => {
+        return this.doFetch(this.getGroupsRoute(), { method: 'post', body: JSON.stringify(group) });
+    };
+    addUsersToGroup = (groupId, userIds) => {
+        return this.doFetch(`${this.getGroupRoute(groupId)}/members`, { method: 'post', body: JSON.stringify({ user_ids: userIds }) });
+    };
+    removeUsersFromGroup = (groupId, userIds) => {
+        return this.doFetch(`${this.getGroupRoute(groupId)}/members`, { method: 'delete', body: JSON.stringify({ user_ids: userIds }) });
+    };
+    searchGroups = (params) => {
+        return this.doFetch(`${this.getGroupsRoute()}${(0, helpers_1.buildQueryString)(params)}`, { method: 'get' });
+    };
+    executeAppCall = async (call, trackAsSubmit) => {
+        const callCopy = {
+            ...call,
+            context: {
+                ...call.context,
+                track_as_submit: trackAsSubmit,
+                user_agent: 'webapp',
+            },
+        };
+        return this.doFetch(`${this.getAppsProxyRoute()}/api/v1/call`, { method: 'post', body: JSON.stringify(callCopy) });
+    };
+    getAppsBindings = async (channelID, teamID) => {
+        const params = {
+            channel_id: channelID,
+            team_id: teamID,
+            user_agent: 'webapp',
+        };
+        return this.doFetch(`${this.getAppsProxyRoute()}/api/v1/bindings${(0, helpers_1.buildQueryString)(params)}`, { method: 'get' });
+    };
+    getGroupsAssociatedToTeam = (teamID, q = '', page = 0, perPage = PER_PAGE_DEFAULT, filterAllowReference = false) => {
+        this.trackEvent('api', 'api_groups_get_associated_to_team', { team_id: teamID });
+        return this.doFetch(`${this.getBaseRoute()}/teams/${teamID}/groups${(0, helpers_1.buildQueryString)({ page, per_page: perPage, q, include_member_count: true, filter_allow_reference: filterAllowReference })}`, { method: 'get' });
+    };
+    getGroupsAssociatedToChannel = (channelID, q = '', page = 0, perPage = PER_PAGE_DEFAULT, filterAllowReference = false) => {
+        this.trackEvent('api', 'api_groups_get_associated_to_channel', { channel_id: channelID });
+        return this.doFetch(`${this.getBaseRoute()}/channels/${channelID}/groups${(0, helpers_1.buildQueryString)({ page, per_page: perPage, q, include_member_count: true, filter_allow_reference: filterAllowReference })}`, { method: 'get' });
+    };
+    getAllGroupsAssociatedToTeam = (teamID, filterAllowReference = false, includeMemberCount = false) => {
+        return this.doFetch(`${this.getBaseRoute()}/teams/${teamID}/groups${(0, helpers_1.buildQueryString)({ paginate: false, filter_allow_reference: filterAllowReference, include_member_count: includeMemberCount })}`, { method: 'get' });
+    };
+    getAllGroupsAssociatedToChannelsInTeam = (teamID, filterAllowReference = false) => {
+        return this.doFetch(`${this.getBaseRoute()}/teams/${teamID}/groups_by_channels${(0, helpers_1.buildQueryString)({ paginate: false, filter_allow_reference: filterAllowReference })}`, { method: 'get' });
+    };
+    getAllGroupsAssociatedToChannel = (channelID, filterAllowReference = false, includeMemberCount = false) => {
+        return this.doFetch(`${this.getBaseRoute()}/channels/${channelID}/groups${(0, helpers_1.buildQueryString)({ paginate: false, filter_allow_reference: filterAllowReference, include_member_count: includeMemberCount })}`, { method: 'get' });
+    };
+    patchGroupSyncable = (groupID, syncableID, syncableType, patch) => {
+        return this.doFetch(`${this.getGroupRoute(groupID)}/${syncableType}s/${syncableID}/patch`, { method: 'put', body: JSON.stringify(patch) });
+    };
+    patchGroup = (groupID, patch) => {
+        return this.doFetch(`${this.getGroupRoute(groupID)}/patch`, { method: 'put', body: JSON.stringify(patch) });
+    };
+    archiveGroup = (groupId) => {
+        return this.doFetch(`${this.getGroupRoute(groupId)}`, { method: 'delete' });
+    };
+    restoreGroup = (groupId) => {
+        return this.doFetch(`${this.getGroupRoute(groupId)}/restore`, { method: 'post' });
+    };
+    createGroupTeamsAndChannels = (userID) => {
+        return this.doFetch(`${this.getBaseRoute()}/ldap/users/${userID}/group_sync_memberships`, { method: 'post' });
+    };
+    // Bot Routes
+    createBot = (bot) => {
+        return this.doFetch(`${this.getBotsRoute()}`, { method: 'post', body: JSON.stringify(bot) });
+    };
+    patchBot = (botUserId, botPatch) => {
+        return this.doFetch(`${this.getBotRoute(botUserId)}`, { method: 'put', body: JSON.stringify(botPatch) });
+    };
+    getBot = (botUserId) => {
+        return this.doFetch(`${this.getBotRoute(botUserId)}`, { method: 'get' });
+    };
+    getBots = (page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getBotsRoute()}${(0, helpers_1.buildQueryString)({ page, per_page: perPage })}`, { method: 'get' });
+    };
+    getBotsIncludeDeleted = (page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getBotsRoute()}${(0, helpers_1.buildQueryString)({ include_deleted: true, page, per_page: perPage })}`, { method: 'get' });
+    };
+    getBotsOrphaned = (page = 0, perPage = PER_PAGE_DEFAULT) => {
+        return this.doFetch(`${this.getBotsRoute()}${(0, helpers_1.buildQueryString)({ only_orphaned: true, page, per_page: perPage })}`, { method: 'get' });
+    };
+    disableBot = (botUserId) => {
+        return this.doFetch(`${this.getBotRoute(botUserId)}/disable`, { method: 'post' });
+    };
+    enableBot = (botUserId) => {
+        return this.doFetch(`${this.getBotRoute(botUserId)}/enable`, { method: 'post' });
+    };
+    assignBot = (botUserId, newOwnerId) => {
+        return this.doFetch(`${this.getBotRoute(botUserId)}/assign/${newOwnerId}`, { method: 'post' });
+    };
+    // Cloud routes
+    getCloudProducts = (includeLegacyProducts) => {
+        let query = '';
+        if (includeLegacyProducts) {
+            query = '?include_legacy=true';
+        }
+        return this.doFetch(`${this.getCloudRoute()}/products${query}`, { method: 'get' });
+    };
+    getSelfHostedProducts = () => {
+        return this.doFetch(`${this.getCloudRoute()}/products/selfhosted`, { method: 'get' });
+    };
+    subscribeToNewsletter = (newletterRequestBody) => {
+        return this.doFetch(`${this.getHostedCustomerRoute()}/subscribe-newsletter`, { method: 'post', body: JSON.stringify(newletterRequestBody) });
+    };
+    cwsAvailabilityCheck = () => {
+        return this.doFetchWithResponse(`${this.getCloudRoute()}/check-cws-connection`, { method: 'get' });
+    };
+    getCloudCustomer = () => {
+        return this.doFetch(`${this.getCloudRoute()}/customer`, { method: 'get' });
+    };
+    updateCloudCustomer = (customerPatch) => {
+        return this.doFetch(`${this.getCloudRoute()}/customer`, { method: 'put', body: JSON.stringify(customerPatch) });
+    };
+    updateCloudCustomerAddress = (address) => {
+        return this.doFetch(`${this.getCloudRoute()}/customer/address`, { method: 'put', body: JSON.stringify(address) });
+    };
+    notifyAdmin = (req) => {
+        return this.doFetchWithResponse(`${this.getUsersRoute()}/notify-admin`, { method: 'post', body: JSON.stringify(req) });
+    };
+    validateBusinessEmail = (email = '') => {
+        return this.doFetchWithResponse(`${this.getCloudRoute()}/validate-business-email`, { method: 'post', body: JSON.stringify({ email }) });
+    };
+    validateWorkspaceBusinessEmail = () => {
+        return this.doFetchWithResponse(`${this.getCloudRoute()}/validate-workspace-business-email`, { method: 'post' });
+    };
+    getSubscription = () => {
+        return this.doFetch(`${this.getCloudRoute()}/subscription`, { method: 'get' });
+    };
+    getInstallation = () => {
+        return this.doFetch(`${this.getCloudRoute()}/installation`, { method: 'get' });
+    };
+    getInvoices = () => {
+        return this.doFetch(`${this.getCloudRoute()}/subscription/invoices`, { method: 'get' });
+    };
+    getInvoicePdfUrl = (invoiceId) => {
+        return `${this.getCloudRoute()}/subscription/invoices/${invoiceId}/pdf`;
+    };
+    getCloudLimits = () => {
+        return this.doFetch(`${this.getCloudRoute()}/limits`, { method: 'get' });
+    };
+    getPostsUsage = () => {
+        return this.doFetch(`${this.getUsageRoute()}/posts`, { method: 'get' });
+    };
+    getFilesUsage = () => {
+        return this.doFetch(`${this.getUsageRoute()}/storage`, { method: 'get' });
+    };
+    getTeamsUsage = () => {
+        return this.doFetch(`${this.getUsageRoute()}/teams`, { method: 'get' });
+    };
+    teamMembersMinusGroupMembers = (teamID, groupIDs, page, perPage) => {
+        const query = `group_ids=${groupIDs.join(',')}&page=${page}&per_page=${perPage}`;
+        return this.doFetch(`${this.getTeamRoute(teamID)}/members_minus_group_members?${query}`, { method: 'get' });
+    };
+    channelMembersMinusGroupMembers = (channelID, groupIDs, page, perPage) => {
+        const query = `group_ids=${groupIDs.join(',')}&page=${page}&per_page=${perPage}`;
+        return this.doFetch(`${this.getChannelRoute(channelID)}/members_minus_group_members?${query}`, { method: 'get' });
+    };
+    getSamlMetadataFromIdp = (samlMetadataURL) => {
+        return this.doFetch(`${this.getBaseRoute()}/saml/metadatafromidp`, { method: 'post', body: JSON.stringify({ saml_metadata_url: samlMetadataURL }) });
+    };
+    setSamlIdpCertificateFromMetadata = (certData) => {
+        const request = {
+            method: 'post',
+            body: certData,
+        };
+        request.headers = {
+            'Content-Type': 'application/x-pem-file',
+        };
+        return this.doFetch(`${this.getBaseRoute()}/saml/certificate/idp`, request);
+    };
+    getInProductNotices = (teamId, client, clientVersion) => {
+        return this.doFetch(`${this.getNoticesRoute()}/${teamId}?client=${client}&clientVersion=${clientVersion}`, { method: 'get' });
+    };
+    updateNoticesAsViewed = (noticeIds) => {
+        // Only one notice is marked as viewed at a time so using 0 index
+        this.trackEvent('ui', `notice_seen_${noticeIds[0]}`);
+        return this.doFetch(`${this.getNoticesRoute()}/view`, { method: 'put', body: JSON.stringify(noticeIds) });
+    };
+    getAncillaryPermissions = (subsectionPermissions) => {
+        return this.doFetch(`${this.getPermissionsRoute()}/ancillary`, { method: 'post', body: JSON.stringify(subsectionPermissions) });
+    };
+    completeSetup = (completeOnboardingRequest) => {
+        return this.doFetch(`${this.getSystemRoute()}/onboarding/complete`, { method: 'post', body: JSON.stringify(completeOnboardingRequest) });
+    };
+    getAppliedSchemaMigrations = () => {
+        return this.doFetch(`${this.getSystemRoute()}/schema/version`, { method: 'get' });
+    };
+    getCallsChannelState = (channelId) => {
+        return this.doFetch(`${this.url}/plugins/${'com.mattermost.calls'}/${channelId}`, { method: 'get' });
+    };
+    // Client Helpers
+    doFetch = async (url, options) => {
+        const { data } = await this.doFetchWithResponse(url, options);
+        return data;
+    };
+    doFetchWithResponse = async (url, options) => {
+        const response = await fetch(url, this.getOptions(options));
+        const headers = parseAndMergeNestedHeaders(response.headers);
+        let data;
+        try {
+            if (headers.get('Content-Type') === 'application/json') {
+                data = await response.json();
+            }
+            else {
+                data = await response.text();
+            }
+        }
+        catch (err) {
+            throw new ClientError(this.getUrl(), {
+                message: 'Received invalid response from the server.',
+                url,
+            }, err);
+        }
+        if (headers.has(exports.HEADER_X_VERSION_ID) && !headers.get('Cache-Control')) {
+            const serverVersion = headers.get(exports.HEADER_X_VERSION_ID);
+            if (serverVersion && this.serverVersion !== serverVersion) {
+                this.serverVersion = serverVersion;
+            }
+        }
+        if (headers.has(exports.HEADER_X_CLUSTER_ID)) {
+            const clusterId = headers.get(exports.HEADER_X_CLUSTER_ID);
+            if (clusterId && this.clusterId !== clusterId) {
+                this.clusterId = clusterId;
+            }
+        }
+        if (response.ok || options.ignoreStatus) {
+            return {
+                response,
+                headers,
+                data,
+            };
+        }
+        const msg = data.message || '';
+        if (this.logToConsole) {
+            console.error(msg); // eslint-disable-line no-console
+        }
+        throw new ClientError(this.getUrl(), {
+            message: msg,
+            server_error_id: data.id,
+            status_code: data.status_code,
+            url,
+        });
+    };
+    trackEvent(category, event, props) {
+        if (this.telemetryHandler) {
+            this.telemetryHandler.trackEvent(this.userId, this.userRoles, category, event, props);
+        }
+    }
+    pageVisited(category, name) {
+        if (this.telemetryHandler) {
+            this.telemetryHandler.pageVisited(this.userId, this.userRoles, category, name);
+        }
+    }
+    upsertDraft = async (draft, connectionId) => {
+        const result = await this.doFetch(`${this.getDraftsRoute()}`, {
+            method: 'post',
+            body: JSON.stringify(draft),
+            headers: {
+                'Connection-Id': `${connectionId}`,
+            },
+        });
+        return result;
+    };
+    getUserDrafts = (teamId) => {
+        return this.doFetch(`${this.getUserRoute('me')}/teams/${teamId}/drafts`, { method: 'get' });
+    };
+    deleteDraft = (channelId, rootId = '', connectionId) => {
+        let endpoint = `${this.getUserRoute('me')}/channels/${channelId}/drafts`;
+        if (rootId !== '') {
+            endpoint += `/${rootId}`;
+        }
+        return this.doFetch(endpoint, {
+            method: 'delete',
+            headers: {
+                'Connection-Id': `${connectionId}`,
+            },
+        });
+    };
+    getIPFilters = () => {
+        return this.doFetch(`${this.getBaseRoute()}/ip_filtering`, { method: 'get' });
+    };
+    getCurrentIP = () => {
+        return this.doFetch(`${this.getBaseRoute()}/ip_filtering/my_ip`, { method: 'get' });
+    };
+    applyIPFilters = (filters) => {
+        return this.doFetch(`${this.getBaseRoute()}/ip_filtering`, { method: 'post', body: JSON.stringify(filters) });
+    };
+    getGroupMessageMembersCommonTeams = (channelId) => {
+        return this.doFetchWithResponse(`${this.getChannelRoute(channelId)}/common_teams`, { method: 'get' });
+    };
+    convertGroupMessageToPrivateChannel = (channelId, teamId, displayName, name) => {
+        const body = {
+            channel_id: channelId,
+            team_id: teamId,
+            display_name: displayName,
+            name,
+        };
+        return this.doFetchWithResponse(`${this.getChannelRoute(channelId)}/convert_to_channel?team_id=${teamId}`, { method: 'post', body: JSON.stringify(body) });
+    };
+}
+exports["default"] = Client4;
+function parseAndMergeNestedHeaders(originalHeaders) {
+    const headers = new Map();
+    let nestedHeaders = new Map();
+    originalHeaders.forEach((val, key) => {
+        const capitalizedKey = key.replace(/\b[a-z]/g, (l) => l.toUpperCase());
+        let realVal = val;
+        if (val && val.match(/\n\S+:\s\S+/)) {
+            const nestedHeaderStrings = val.split('\n');
+            realVal = nestedHeaderStrings.shift();
+            const moreNestedHeaders = new Map(nestedHeaderStrings.map((h) => h.split(/:\s/)));
+            nestedHeaders = new Map([...nestedHeaders, ...moreNestedHeaders]);
+        }
+        headers.set(capitalizedKey, realVal);
+    });
+    return new Map([...headers, ...nestedHeaders]);
+}
+exports.parseAndMergeNestedHeaders = parseAndMergeNestedHeaders;
+class ClientError extends Error {
+    url;
+    server_error_id;
+    status_code;
+    constructor(baseUrl, data, cause) {
+        super(data.message + ': ' + (0, errors_1.cleanUrlForLogging)(baseUrl, data.url || ''), { cause });
+        this.message = data.message;
+        this.url = data.url;
+        this.server_error_id = data.server_error_id;
+        this.status_code = data.status_code;
+        // Ensure message is treated as a property of this class when object spreading. Without this,
+        // copying the object by using `{...error}` would not include the message.
+        Object.defineProperty(this, 'message', { enumerable: true });
+    }
+}
+exports.ClientError = ClientError;
+
+
+/***/ }),
+
+/***/ 16505:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.cleanUrlForLogging = void 0;
+// Given a URL from an API request, return a URL that has any parts removed that are either sensitive or that would
+// prevent properly grouping the messages in Sentry.
+function cleanUrlForLogging(baseUrl, apiUrl) {
+    let url = apiUrl;
+    // Trim the host name
+    url = url.substring(baseUrl.length);
+    // Filter the query string
+    const index = url.indexOf('?');
+    if (index !== -1) {
+        url = url.substring(0, index);
+    }
+    // A non-exhaustive whitelist to exclude parts of the URL that are unimportant (eg IDs) or may be sentsitive
+    // (eg email addresses). We prefer filtering out fields that aren't recognized because there should generally
+    // be enough left over for debugging.
+    //
+    // Note that new API routes don't need to be added here since this shouldn't be happening for newly added routes.
+    const whitelist = [
+        'api', 'v4', 'users', 'teams', 'scheme', 'name', 'members', 'channels', 'posts', 'reactions', 'commands',
+        'files', 'preferences', 'hooks', 'incoming', 'outgoing', 'oauth', 'apps', 'emoji', 'brand', 'image',
+        'data_retention', 'jobs', 'plugins', 'roles', 'system', 'timezones', 'schemes', 'redirect_location', 'patch',
+        'mfa', 'password', 'reset', 'send', 'active', 'verify', 'terms_of_service', 'login', 'logout', 'ids',
+        'usernames', 'me', 'username', 'email', 'default', 'sessions', 'revoke', 'all', 'audits', 'device', 'status',
+        'search', 'switch', 'authorized', 'authorize', 'deauthorize', 'tokens', 'disable', 'enable', 'exists', 'unread',
+        'invite', 'batch', 'stats', 'import', 'schemeRoles', 'direct', 'group', 'convert', 'view', 'search_autocomplete',
+        'thread', 'info', 'flagged', 'pinned', 'pin', 'unpin', 'opengraph', 'actions', 'thumbnail', 'preview', 'link',
+        'delete', 'logs', 'ping', 'config', 'client', 'license', 'websocket', 'webrtc', 'token', 'regen_token',
+        'autocomplete', 'execute', 'regen_secret', 'policy', 'type', 'cancel', 'reload', 'environment', 's3_test', 'file',
+        'caches', 'invalidate', 'database', 'recycle', 'compliance', 'reports', 'cluster', 'ldap', 'test', 'sync', 'saml',
+        'certificate', 'public', 'private', 'idp', 'elasticsearch', 'purge_indexes', 'analytics', 'old', 'webapp', 'fake',
+    ];
+    url = url.split('/').map((part) => {
+        if (part !== '' && whitelist.indexOf(part) === -1) {
+            return '<filtered>';
+        }
+        return part;
+    }).join('/');
+    if (index !== -1) {
+        // Add this on afterwards since it wouldn't pass the whitelist
+        url += '?<filtered>';
+    }
+    return url;
+}
+exports.cleanUrlForLogging = cleanUrlForLogging;
+
+
+/***/ }),
+
+/***/ 16261:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.buildQueryString = void 0;
+function buildQueryString(parameters) {
+    const keys = Object.keys(parameters);
+    if (keys.length === 0) {
+        return '';
+    }
+    const queryParams = Object.entries(parameters).
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        filter(([_, value]) => value !== undefined).
+        map(([key, value]) => `${key}=${encodeURIComponent(value)}`).
+        join('&');
+    return queryParams.length > 0 ? `?${queryParams}` : '';
+}
+exports.buildQueryString = buildQueryString;
+
+
+/***/ }),
+
+/***/ 7512:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.WebSocketClient = exports.DEFAULT_LIMIT_BEFORE = exports.DEFAULT_LIMIT_AFTER = exports.ClientError = exports.Client4 = void 0;
+var client4_1 = __nccwpck_require__(30209);
+Object.defineProperty(exports, "Client4", ({ enumerable: true, get: function () { return __importDefault(client4_1).default; } }));
+Object.defineProperty(exports, "ClientError", ({ enumerable: true, get: function () { return client4_1.ClientError; } }));
+Object.defineProperty(exports, "DEFAULT_LIMIT_AFTER", ({ enumerable: true, get: function () { return client4_1.DEFAULT_LIMIT_AFTER; } }));
+Object.defineProperty(exports, "DEFAULT_LIMIT_BEFORE", ({ enumerable: true, get: function () { return client4_1.DEFAULT_LIMIT_BEFORE; } }));
+var websocket_1 = __nccwpck_require__(38567);
+Object.defineProperty(exports, "WebSocketClient", ({ enumerable: true, get: function () { return __importDefault(websocket_1).default; } }));
+
+
+/***/ }),
+
+/***/ 38567:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const MAX_WEBSOCKET_FAILS = 7;
+const MIN_WEBSOCKET_RETRY_TIME = 3000; // 3 sec
+const MAX_WEBSOCKET_RETRY_TIME = 300000; // 5 mins
+const JITTER_RANGE = 2000; // 2 sec
+const WEBSOCKET_HELLO = 'hello';
+class WebSocketClient {
+    conn;
+    connectionUrl;
+    // responseSequence is the number to track a response sent
+    // via the websocket. A response will always have the same sequence number
+    // as the request.
+    responseSequence;
+    // serverSequence is the incrementing sequence number from the
+    // server-sent event stream.
+    serverSequence;
+    connectFailCount;
+    responseCallbacks;
+    /**
+     * @deprecated Use messageListeners instead
+     */
+    eventCallback = null;
+    /**
+     * @deprecated Use firstConnectListeners instead
+     */
+    firstConnectCallback = null;
+    /**
+     * @deprecated Use reconnectListeners instead
+     */
+    reconnectCallback = null;
+    /**
+     * @deprecated Use missedMessageListeners instead
+     */
+    missedEventCallback = null;
+    /**
+     * @deprecated Use errorListeners instead
+     */
+    errorCallback = null;
+    /**
+     * @deprecated Use closeListeners instead
+     */
+    closeCallback = null;
+    messageListeners = new Set();
+    firstConnectListeners = new Set();
+    reconnectListeners = new Set();
+    missedMessageListeners = new Set();
+    errorListeners = new Set();
+    closeListeners = new Set();
+    connectionId;
+    postedAck;
+    constructor() {
+        this.conn = null;
+        this.connectionUrl = null;
+        this.responseSequence = 1;
+        this.serverSequence = 0;
+        this.connectFailCount = 0;
+        this.responseCallbacks = {};
+        this.connectionId = '';
+        this.postedAck = false;
+    }
+    // on connect, only send auth cookie and blank state.
+    // on hello, get the connectionID and store it.
+    // on reconnect, send cookie, connectionID, sequence number.
+    initialize(connectionUrl = this.connectionUrl, token, postedAck) {
+        if (this.conn) {
+            return;
+        }
+        if (connectionUrl == null) {
+            console.log('websocket must have connection url'); //eslint-disable-line no-console
+            return;
+        }
+        if (this.connectFailCount === 0) {
+            console.log('websocket connecting to ' + connectionUrl); //eslint-disable-line no-console
+        }
+        if (typeof postedAck != 'undefined') {
+            this.postedAck = postedAck;
+        }
+        // Add connection id, and last_sequence_number to the query param.
+        // We cannot use a cookie because it will bleed across tabs.
+        // We cannot also send it as part of the auth_challenge, because the session cookie is already sent with the request.
+        this.conn = new WebSocket(`${connectionUrl}?connection_id=${this.connectionId}&sequence_number=${this.serverSequence}${this.postedAck ? '&posted_ack=true' : ''}`);
+        this.connectionUrl = connectionUrl;
+        this.conn.onopen = () => {
+            if (token) {
+                this.sendMessage('authentication_challenge', { token });
+            }
+            if (this.connectFailCount > 0) {
+                console.log('websocket re-established connection'); //eslint-disable-line no-console
+                this.reconnectCallback?.();
+                this.reconnectListeners.forEach((listener) => listener());
+            }
+            else if (this.firstConnectCallback || this.firstConnectListeners.size > 0) {
+                this.firstConnectCallback?.();
+                this.firstConnectListeners.forEach((listener) => listener());
+            }
+            this.connectFailCount = 0;
+        };
+        this.conn.onclose = () => {
+            this.conn = null;
+            this.responseSequence = 1;
+            if (this.connectFailCount === 0) {
+                console.log('websocket closed'); //eslint-disable-line no-console
+            }
+            this.connectFailCount++;
+            this.closeCallback?.(this.connectFailCount);
+            this.closeListeners.forEach((listener) => listener(this.connectFailCount));
+            let retryTime = MIN_WEBSOCKET_RETRY_TIME;
+            // If we've failed a bunch of connections then start backing off
+            if (this.connectFailCount > MAX_WEBSOCKET_FAILS) {
+                retryTime = MIN_WEBSOCKET_RETRY_TIME * this.connectFailCount * this.connectFailCount;
+                if (retryTime > MAX_WEBSOCKET_RETRY_TIME) {
+                    retryTime = MAX_WEBSOCKET_RETRY_TIME;
+                }
+            }
+            // Applying jitter to avoid thundering herd problems.
+            retryTime += Math.random() * JITTER_RANGE;
+            setTimeout(() => {
+                this.initialize(connectionUrl, token, postedAck);
+            }, retryTime);
+        };
+        this.conn.onerror = (evt) => {
+            if (this.connectFailCount <= 1) {
+                console.log('websocket error'); //eslint-disable-line no-console
+                console.log(evt); //eslint-disable-line no-console
+            }
+            this.errorCallback?.(evt);
+            this.errorListeners.forEach((listener) => listener(evt));
+        };
+        this.conn.onmessage = (evt) => {
+            const msg = JSON.parse(evt.data);
+            if (msg.seq_reply) {
+                // This indicates a reply to a websocket request.
+                // We ignore sequence number validation of message responses
+                // and only focus on the purely server side event stream.
+                if (msg.error) {
+                    console.log(msg); //eslint-disable-line no-console
+                }
+                if (this.responseCallbacks[msg.seq_reply]) {
+                    this.responseCallbacks[msg.seq_reply](msg);
+                    Reflect.deleteProperty(this.responseCallbacks, msg.seq_reply);
+                }
+            }
+            else if (this.eventCallback || this.messageListeners.size > 0) {
+                // We check the hello packet, which is always the first packet in a stream.
+                if (msg.event === WEBSOCKET_HELLO && (this.missedEventCallback || this.missedMessageListeners.size > 0)) {
+                    console.log('got connection id ', msg.data.connection_id); //eslint-disable-line no-console
+                    // If we already have a connectionId present, and server sends a different one,
+                    // that means it's either a long timeout, or server restart, or sequence number is not found.
+                    // Then we do the sync calls, and reset sequence number to 0.
+                    if (this.connectionId !== '' && this.connectionId !== msg.data.connection_id) {
+                        console.log('long timeout, or server restart, or sequence number is not found.'); //eslint-disable-line no-console
+                        this.missedEventCallback?.();
+                        for (const listener of this.missedMessageListeners) {
+                            try {
+                                listener();
+                            }
+                            catch (e) {
+                                console.log(`missed message listener "${listener.name}" failed: ${e}`); // eslint-disable-line no-console
+                            }
+                        }
+                        this.serverSequence = 0;
+                    }
+                    // If it's a fresh connection, we have to set the connectionId regardless.
+                    // And if it's an existing connection, setting it again is harmless, and keeps the code simple.
+                    this.connectionId = msg.data.connection_id;
+                }
+                // Now we check for sequence number, and if it does not match,
+                // we just disconnect and reconnect.
+                if (msg.seq !== this.serverSequence) {
+                    console.log('missed websocket event, act_seq=' + msg.seq + ' exp_seq=' + this.serverSequence); //eslint-disable-line no-console
+                    // We are not calling this.close() because we need to auto-restart.
+                    this.connectFailCount = 0;
+                    this.responseSequence = 1;
+                    this.conn?.close(); // Will auto-reconnect after MIN_WEBSOCKET_RETRY_TIME.
+                    return;
+                }
+                this.serverSequence = msg.seq + 1;
+                this.eventCallback?.(msg);
+                this.messageListeners.forEach((listener) => listener(msg));
+            }
+        };
+    }
+    /**
+     * @deprecated Use addMessageListener instead
+     */
+    setEventCallback(callback) {
+        this.eventCallback = callback;
+    }
+    addMessageListener(listener) {
+        this.messageListeners.add(listener);
+        if (this.messageListeners.size > 5) {
+            // eslint-disable-next-line no-console
+            console.warn(`WebSocketClient has ${this.messageListeners.size} message listeners registered`);
+        }
+    }
+    removeMessageListener(listener) {
+        this.messageListeners.delete(listener);
+    }
+    /**
+     * @deprecated Use addFirstConnectListener instead
+     */
+    setFirstConnectCallback(callback) {
+        this.firstConnectCallback = callback;
+    }
+    addFirstConnectListener(listener) {
+        this.firstConnectListeners.add(listener);
+        if (this.firstConnectListeners.size > 5) {
+            // eslint-disable-next-line no-console
+            console.warn(`WebSocketClient has ${this.firstConnectListeners.size} first connect listeners registered`);
+        }
+    }
+    removeFirstConnectListener(listener) {
+        this.firstConnectListeners.delete(listener);
+    }
+    /**
+     * @deprecated Use addReconnectListener instead
+     */
+    setReconnectCallback(callback) {
+        this.reconnectCallback = callback;
+    }
+    addReconnectListener(listener) {
+        this.reconnectListeners.add(listener);
+        if (this.reconnectListeners.size > 5) {
+            // eslint-disable-next-line no-console
+            console.warn(`WebSocketClient has ${this.reconnectListeners.size} reconnect listeners registered`);
+        }
+    }
+    removeReconnectListener(listener) {
+        this.reconnectListeners.delete(listener);
+    }
+    /**
+     * @deprecated Use addMissedMessageListener instead
+     */
+    setMissedEventCallback(callback) {
+        this.missedEventCallback = callback;
+    }
+    addMissedMessageListener(listener) {
+        this.missedMessageListeners.add(listener);
+        if (this.missedMessageListeners.size > 5) {
+            // eslint-disable-next-line no-console
+            console.warn(`WebSocketClient has ${this.missedMessageListeners.size} missed message listeners registered`);
+        }
+    }
+    removeMissedMessageListener(listener) {
+        this.missedMessageListeners.delete(listener);
+    }
+    /**
+     * @deprecated Use addErrorListener instead
+     */
+    setErrorCallback(callback) {
+        this.errorCallback = callback;
+    }
+    addErrorListener(listener) {
+        this.errorListeners.add(listener);
+        if (this.errorListeners.size > 5) {
+            // eslint-disable-next-line no-console
+            console.warn(`WebSocketClient has ${this.errorListeners.size} error listeners registered`);
+        }
+    }
+    removeErrorListener(listener) {
+        this.errorListeners.delete(listener);
+    }
+    /**
+     * @deprecated Use addCloseListener instead
+     */
+    setCloseCallback(callback) {
+        this.closeCallback = callback;
+    }
+    addCloseListener(listener) {
+        this.closeListeners.add(listener);
+        if (this.closeListeners.size > 5) {
+            // eslint-disable-next-line no-console
+            console.warn(`WebSocketClient has ${this.closeListeners.size} close listeners registered`);
+        }
+    }
+    removeCloseListener(listener) {
+        this.closeListeners.delete(listener);
+    }
+    close() {
+        this.connectFailCount = 0;
+        this.responseSequence = 1;
+        if (this.conn && this.conn.readyState === WebSocket.OPEN) {
+            this.conn.onclose = () => { };
+            this.conn.close();
+            this.conn = null;
+            console.log('websocket closed'); //eslint-disable-line no-console
+        }
+    }
+    sendMessage(action, data, responseCallback) {
+        const msg = {
+            action,
+            seq: this.responseSequence++,
+            data,
+        };
+        if (responseCallback) {
+            this.responseCallbacks[msg.seq] = responseCallback;
+        }
+        if (this.conn && this.conn.readyState === WebSocket.OPEN) {
+            this.conn.send(JSON.stringify(msg));
+        }
+        else if (!this.conn || this.conn.readyState === WebSocket.CLOSED) {
+            this.conn = null;
+            this.initialize();
+        }
+    }
+    userTyping(channelId, parentId, callback) {
+        const data = {
+            channel_id: channelId,
+            parent_id: parentId,
+        };
+        this.sendMessage('user_typing', data, callback);
+    }
+    updateActiveChannel(channelId, callback) {
+        const data = {
+            channel_id: channelId,
+        };
+        this.sendMessage('presence', data, callback);
+    }
+    updateActiveTeam(teamId, callback) {
+        const data = {
+            team_id: teamId,
+        };
+        this.sendMessage('presence', data, callback);
+    }
+    updateActiveThread(isThreadView, channelId, callback) {
+        const data = {
+            thread_channel_id: channelId,
+            is_thread_view: isThreadView,
+        };
+        this.sendMessage('presence', data, callback);
+    }
+    userUpdateActiveStatus(userIsActive, manual, callback) {
+        const data = {
+            user_is_active: userIsActive,
+            manual,
+        };
+        this.sendMessage('user_update_active_status', data, callback);
+    }
+    acknowledgePostedNotification(postId, status, reason, postedData) {
+        const data = {
+            post_id: postId,
+            user_agent: window.navigator.userAgent,
+            status,
+            reason,
+            data: postedData,
+        };
+        this.sendMessage('posted_notify_ack', data);
+    }
+    getStatuses(callback) {
+        this.sendMessage('get_statuses', null, callback);
+    }
+    getStatusesByIds(userIds, callback) {
+        const data = {
+            user_ids: userIds,
+        };
+        this.sendMessage('get_statuses_by_ids', data, callback);
+    }
+}
+exports["default"] = WebSocketClient;
+
+
+/***/ }),
+
+/***/ 3778:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+var CombinedStream = __nccwpck_require__(76798);
+var util = __nccwpck_require__(39023);
+var path = __nccwpck_require__(16928);
+var http = __nccwpck_require__(58611);
+var https = __nccwpck_require__(65692);
+var parseUrl = (__nccwpck_require__(87016).parse);
+var fs = __nccwpck_require__(79896);
+var Stream = (__nccwpck_require__(2203).Stream);
+var mime = __nccwpck_require__(82208);
+var asynckit = __nccwpck_require__(54700);
+var populate = __nccwpck_require__(1303);
+
+// Public API
+module.exports = FormData;
+
+// make it a Stream
+util.inherits(FormData, CombinedStream);
+
+/**
+ * Create readable "multipart/form-data" streams.
+ * Can be used to submit forms
+ * and file uploads to other web applications.
+ *
+ * @constructor
+ * @param {Object} options - Properties to be added/overriden for FormData and CombinedStream
+ */
+function FormData(options) {
+  if (!(this instanceof FormData)) {
+    return new FormData(options);
+  }
+
+  this._overheadLength = 0;
+  this._valueLength = 0;
+  this._valuesToMeasure = [];
+
+  CombinedStream.call(this);
+
+  options = options || {};
+  for (var option in options) {
+    this[option] = options[option];
+  }
+}
+
+FormData.LINE_BREAK = '\r\n';
+FormData.DEFAULT_CONTENT_TYPE = 'application/octet-stream';
+
+FormData.prototype.append = function(field, value, options) {
+
+  options = options || {};
+
+  // allow filename as single option
+  if (typeof options == 'string') {
+    options = {filename: options};
+  }
+
+  var append = CombinedStream.prototype.append.bind(this);
+
+  // all that streamy business can't handle numbers
+  if (typeof value == 'number') {
+    value = '' + value;
+  }
+
+  // https://github.com/felixge/node-form-data/issues/38
+  if (Array.isArray(value)) {
+    // Please convert your array into string
+    // the way web server expects it
+    this._error(new Error('Arrays are not supported.'));
+    return;
+  }
+
+  var header = this._multiPartHeader(field, value, options);
+  var footer = this._multiPartFooter();
+
+  append(header);
+  append(value);
+  append(footer);
+
+  // pass along options.knownLength
+  this._trackLength(header, value, options);
+};
+
+FormData.prototype._trackLength = function(header, value, options) {
+  var valueLength = 0;
+
+  // used w/ getLengthSync(), when length is known.
+  // e.g. for streaming directly from a remote server,
+  // w/ a known file a size, and not wanting to wait for
+  // incoming file to finish to get its size.
+  if (options.knownLength != null) {
+    valueLength += +options.knownLength;
+  } else if (Buffer.isBuffer(value)) {
+    valueLength = value.length;
+  } else if (typeof value === 'string') {
+    valueLength = Buffer.byteLength(value);
+  }
+
+  this._valueLength += valueLength;
+
+  // @check why add CRLF? does this account for custom/multiple CRLFs?
+  this._overheadLength +=
+    Buffer.byteLength(header) +
+    FormData.LINE_BREAK.length;
+
+  // empty or either doesn't have path or not an http response or not a stream
+  if (!value || ( !value.path && !(value.readable && value.hasOwnProperty('httpVersion')) && !(value instanceof Stream))) {
+    return;
+  }
+
+  // no need to bother with the length
+  if (!options.knownLength) {
+    this._valuesToMeasure.push(value);
+  }
+};
+
+FormData.prototype._lengthRetriever = function(value, callback) {
+
+  if (value.hasOwnProperty('fd')) {
+
+    // take read range into a account
+    // `end` = Infinity –> read file till the end
+    //
+    // TODO: Looks like there is bug in Node fs.createReadStream
+    // it doesn't respect `end` options without `start` options
+    // Fix it when node fixes it.
+    // https://github.com/joyent/node/issues/7819
+    if (value.end != undefined && value.end != Infinity && value.start != undefined) {
+
+      // when end specified
+      // no need to calculate range
+      // inclusive, starts with 0
+      callback(null, value.end + 1 - (value.start ? value.start : 0));
+
+    // not that fast snoopy
+    } else {
+      // still need to fetch file size from fs
+      fs.stat(value.path, function(err, stat) {
+
+        var fileSize;
+
+        if (err) {
+          callback(err);
+          return;
+        }
+
+        // update final size based on the range options
+        fileSize = stat.size - (value.start ? value.start : 0);
+        callback(null, fileSize);
+      });
+    }
+
+  // or http response
+  } else if (value.hasOwnProperty('httpVersion')) {
+    callback(null, +value.headers['content-length']);
+
+  // or request stream http://github.com/mikeal/request
+  } else if (value.hasOwnProperty('httpModule')) {
+    // wait till response come back
+    value.on('response', function(response) {
+      value.pause();
+      callback(null, +response.headers['content-length']);
+    });
+    value.resume();
+
+  // something else
+  } else {
+    callback('Unknown stream');
+  }
+};
+
+FormData.prototype._multiPartHeader = function(field, value, options) {
+  // custom header specified (as string)?
+  // it becomes responsible for boundary
+  // (e.g. to handle extra CRLFs on .NET servers)
+  if (typeof options.header == 'string') {
+    return options.header;
+  }
+
+  var contentDisposition = this._getContentDisposition(value, options);
+  var contentType = this._getContentType(value, options);
+
+  var contents = '';
+  var headers  = {
+    // add custom disposition as third element or keep it two elements if not
+    'Content-Disposition': ['form-data', 'name="' + field + '"'].concat(contentDisposition || []),
+    // if no content type. allow it to be empty array
+    'Content-Type': [].concat(contentType || [])
+  };
+
+  // allow custom headers.
+  if (typeof options.header == 'object') {
+    populate(headers, options.header);
+  }
+
+  var header;
+  for (var prop in headers) {
+    if (!headers.hasOwnProperty(prop)) continue;
+    header = headers[prop];
+
+    // skip nullish headers.
+    if (header == null) {
+      continue;
+    }
+
+    // convert all headers to arrays.
+    if (!Array.isArray(header)) {
+      header = [header];
+    }
+
+    // add non-empty headers.
+    if (header.length) {
+      contents += prop + ': ' + header.join('; ') + FormData.LINE_BREAK;
+    }
+  }
+
+  return '--' + this.getBoundary() + FormData.LINE_BREAK + contents + FormData.LINE_BREAK;
+};
+
+FormData.prototype._getContentDisposition = function(value, options) {
+
+  var filename
+    , contentDisposition
+    ;
+
+  if (typeof options.filepath === 'string') {
+    // custom filepath for relative paths
+    filename = path.normalize(options.filepath).replace(/\\/g, '/');
+  } else if (options.filename || value.name || value.path) {
+    // custom filename take precedence
+    // formidable and the browser add a name property
+    // fs- and request- streams have path property
+    filename = path.basename(options.filename || value.name || value.path);
+  } else if (value.readable && value.hasOwnProperty('httpVersion')) {
+    // or try http response
+    filename = path.basename(value.client._httpMessage.path || '');
+  }
+
+  if (filename) {
+    contentDisposition = 'filename="' + filename + '"';
+  }
+
+  return contentDisposition;
+};
+
+FormData.prototype._getContentType = function(value, options) {
+
+  // use custom content-type above all
+  var contentType = options.contentType;
+
+  // or try `name` from formidable, browser
+  if (!contentType && value.name) {
+    contentType = mime.lookup(value.name);
+  }
+
+  // or try `path` from fs-, request- streams
+  if (!contentType && value.path) {
+    contentType = mime.lookup(value.path);
+  }
+
+  // or if it's http-reponse
+  if (!contentType && value.readable && value.hasOwnProperty('httpVersion')) {
+    contentType = value.headers['content-type'];
+  }
+
+  // or guess it from the filepath or filename
+  if (!contentType && (options.filepath || options.filename)) {
+    contentType = mime.lookup(options.filepath || options.filename);
+  }
+
+  // fallback to the default content type if `value` is not simple value
+  if (!contentType && typeof value == 'object') {
+    contentType = FormData.DEFAULT_CONTENT_TYPE;
+  }
+
+  return contentType;
+};
+
+FormData.prototype._multiPartFooter = function() {
+  return function(next) {
+    var footer = FormData.LINE_BREAK;
+
+    var lastPart = (this._streams.length === 0);
+    if (lastPart) {
+      footer += this._lastBoundary();
+    }
+
+    next(footer);
+  }.bind(this);
+};
+
+FormData.prototype._lastBoundary = function() {
+  return '--' + this.getBoundary() + '--' + FormData.LINE_BREAK;
+};
+
+FormData.prototype.getHeaders = function(userHeaders) {
+  var header;
+  var formHeaders = {
+    'content-type': 'multipart/form-data; boundary=' + this.getBoundary()
+  };
+
+  for (header in userHeaders) {
+    if (userHeaders.hasOwnProperty(header)) {
+      formHeaders[header.toLowerCase()] = userHeaders[header];
+    }
+  }
+
+  return formHeaders;
+};
+
+FormData.prototype.setBoundary = function(boundary) {
+  this._boundary = boundary;
+};
+
+FormData.prototype.getBoundary = function() {
+  if (!this._boundary) {
+    this._generateBoundary();
+  }
+
+  return this._boundary;
+};
+
+FormData.prototype.getBuffer = function() {
+  var dataBuffer = new Buffer.alloc( 0 );
+  var boundary = this.getBoundary();
+
+  // Create the form content. Add Line breaks to the end of data.
+  for (var i = 0, len = this._streams.length; i < len; i++) {
+    if (typeof this._streams[i] !== 'function') {
+
+      // Add content to the buffer.
+      if(Buffer.isBuffer(this._streams[i])) {
+        dataBuffer = Buffer.concat( [dataBuffer, this._streams[i]]);
+      }else {
+        dataBuffer = Buffer.concat( [dataBuffer, Buffer.from(this._streams[i])]);
+      }
+
+      // Add break after content.
+      if (typeof this._streams[i] !== 'string' || this._streams[i].substring( 2, boundary.length + 2 ) !== boundary) {
+        dataBuffer = Buffer.concat( [dataBuffer, Buffer.from(FormData.LINE_BREAK)] );
+      }
+    }
+  }
+
+  // Add the footer and return the Buffer object.
+  return Buffer.concat( [dataBuffer, Buffer.from(this._lastBoundary())] );
+};
+
+FormData.prototype._generateBoundary = function() {
+  // This generates a 50 character boundary similar to those used by Firefox.
+  // They are optimized for boyer-moore parsing.
+  var boundary = '--------------------------';
+  for (var i = 0; i < 24; i++) {
+    boundary += Math.floor(Math.random() * 10).toString(16);
+  }
+
+  this._boundary = boundary;
+};
+
+// Note: getLengthSync DOESN'T calculate streams length
+// As workaround one can calculate file size manually
+// and add it as knownLength option
+FormData.prototype.getLengthSync = function() {
+  var knownLength = this._overheadLength + this._valueLength;
+
+  // Don't get confused, there are 3 "internal" streams for each keyval pair
+  // so it basically checks if there is any value added to the form
+  if (this._streams.length) {
+    knownLength += this._lastBoundary().length;
+  }
+
+  // https://github.com/form-data/form-data/issues/40
+  if (!this.hasKnownLength()) {
+    // Some async length retrievers are present
+    // therefore synchronous length calculation is false.
+    // Please use getLength(callback) to get proper length
+    this._error(new Error('Cannot calculate proper length in synchronous way.'));
+  }
+
+  return knownLength;
+};
+
+// Public API to check if length of added values is known
+// https://github.com/form-data/form-data/issues/196
+// https://github.com/form-data/form-data/issues/262
+FormData.prototype.hasKnownLength = function() {
+  var hasKnownLength = true;
+
+  if (this._valuesToMeasure.length) {
+    hasKnownLength = false;
+  }
+
+  return hasKnownLength;
+};
+
+FormData.prototype.getLength = function(cb) {
+  var knownLength = this._overheadLength + this._valueLength;
+
+  if (this._streams.length) {
+    knownLength += this._lastBoundary().length;
+  }
+
+  if (!this._valuesToMeasure.length) {
+    process.nextTick(cb.bind(this, null, knownLength));
+    return;
+  }
+
+  asynckit.parallel(this._valuesToMeasure, this._lengthRetriever, function(err, values) {
+    if (err) {
+      cb(err);
+      return;
+    }
+
+    values.forEach(function(length) {
+      knownLength += length;
+    });
+
+    cb(null, knownLength);
+  });
+};
+
+FormData.prototype.submit = function(params, cb) {
+  var request
+    , options
+    , defaults = {method: 'post'}
+    ;
+
+  // parse provided url if it's string
+  // or treat it as options object
+  if (typeof params == 'string') {
+
+    params = parseUrl(params);
+    options = populate({
+      port: params.port,
+      path: params.pathname,
+      host: params.hostname,
+      protocol: params.protocol
+    }, defaults);
+
+  // use custom params
+  } else {
+
+    options = populate(params, defaults);
+    // if no port provided use default one
+    if (!options.port) {
+      options.port = options.protocol == 'https:' ? 443 : 80;
+    }
+  }
+
+  // put that good code in getHeaders to some use
+  options.headers = this.getHeaders(params.headers);
+
+  // https if specified, fallback to http in any other case
+  if (options.protocol == 'https:') {
+    request = https.request(options);
+  } else {
+    request = http.request(options);
+  }
+
+  // get content length and fire away
+  this.getLength(function(err, length) {
+    if (err && err !== 'Unknown stream') {
+      this._error(err);
+      return;
+    }
+
+    // add content length
+    if (length) {
+      request.setHeader('Content-Length', length);
+    }
+
+    this.pipe(request);
+    if (cb) {
+      var onResponse;
+
+      var callback = function (error, responce) {
+        request.removeListener('error', callback);
+        request.removeListener('response', onResponse);
+
+        return cb.call(this, error, responce);
+      };
+
+      onResponse = callback.bind(this, null);
+
+      request.on('error', callback);
+      request.on('response', onResponse);
+    }
+  }.bind(this));
+
+  return request;
+};
+
+FormData.prototype._error = function(err) {
+  if (!this.error) {
+    this.error = err;
+    this.pause();
+    this.emit('error', err);
+  }
+};
+
+FormData.prototype.toString = function () {
+  return '[object FormData]';
+};
+
+
+/***/ }),
+
+/***/ 1303:
+/***/ ((module) => {
+
+// populates missing values
+module.exports = function(dst, src) {
+
+  Object.keys(src).forEach(function(prop)
+  {
+    dst[prop] = dst[prop] || src[prop];
+  });
+
+  return dst;
+};
+
+
+/***/ }),
+
+/***/ 76389:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.LogLevel = void 0;
+var LogLevel;
+(function (LogLevel) {
+    LogLevel["Error"] = "ERROR";
+    LogLevel["Warning"] = "WARNING";
+    LogLevel["Info"] = "INFO";
+    LogLevel["Debug"] = "DEBUG";
+})(LogLevel || (exports.LogLevel = LogLevel = {}));
 
 
 /***/ }),
