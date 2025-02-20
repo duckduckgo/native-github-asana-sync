@@ -16,6 +16,9 @@ inputs:
   asana-section:
     description: 'The Section of the Project where the Task will be added to'
     required: false
+  asana-workspace:
+    description: 'The Workspace where the project resides'
+    required: false
   asana-task-name:
     description: 'Name of the Asana task you want to create.'
     required: false
@@ -63,6 +66,9 @@ inputs:
   mattermost-token:
     description: 'Token to use for the Mattermost connection.'
     required: false 
+  asana-user-map:
+    description: 'List of User ids to be added to an Asana task.'
+    required: false
     
 runs:
   using: 'node20'

@@ -1,0 +1,34 @@
+name: 'Pull Request changed -> Sync Asana PR task'
+on:
+    workflow_call:
+        inputs:
+            user_map:
+                required: false
+                type: string
+        secrets:
+            asana_pat:
+                required: true
+            github_pat:
+                required: true
+            workspace_id:
+                required: true
+            project_id:
+                required: true
+            in_progress_section_id:
+                required: true
+              
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./actions
+        with:
+            action: 'pr-sync'
+            github_pat: ${{ secrets.github_pat }}
+            asana_pat: ${{ secrets.asana_pat }}
+            asana-workspace: ${{ secrets.workspace_id }}
+            asana-project: ${{ secrets.project_id }}
+            asana-section: ${{ secrets.in_progress_section_id }}
+            asana-user-map: ${{ inputs.user_map }}

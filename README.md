@@ -30,6 +30,7 @@ This action integrates asana with github.
 * `get-asana-user-id` to return the Asana User Id of a given Github actor
 * `find-asana-task-id` searches in the PR description for an Asana Task, given a prefix
 * `post-comment-asana-task` to post a comment in an Asana task
+* `pr-sync` to sync PR information between Asana and Github
 
 ### Create Asana task from Github Issue
 When a Github Issue has been added, it will create an Asana task with the Issue title, description and link.
@@ -416,6 +417,55 @@ jobs:
           action: 'send-mattermost-message'
 
 ```
+
+### Sync Pull Requests between GH and Asana
+For tracking the status of Github Pull requests in Asana. It does the following:
+
+1.  Creates tasks for each new pull request in a project.
+2.  Puts these tasks in a specified Asana project (and optionally section)
+3.  Makes the PR task as a subtask of Asana task referenced in PR description
+4.  Syncs any change to the PR name to Asana.
+5.  Syncs the PR state (Open, Closed, Draft, Merged) to an Asana custom field.
+6.  Creates a subtask for each requested review and automatically resolves these once approved or merged
+
+## Usage
+Use the existing [workflow file](./.github/workflows/pr-sync.yml) that runs on
+`pull_request` and `pull_request_review` events:
+
+```yml
+name: 'PR Syncc'
+on:
+  pull_request_review:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - closed
+      - reopened
+      - synchronize
+      - review_requested
+
+jobs:
+  pr-reviewed:
+    name: Add PR reviewed comment
+    uses: duckduckgo/native-github-asana-sync/.github/workflows/pr-sync.yml@v1.4.1
+    with:
+      trigger-phrase: "Task/Issue URL:"
+    secrets:
+      asana_pat: ${{ secrets.GH_ASANA_SECRET }}
+```
+
+## Configuration
+
+There are a few additional configuration options that can be used to tweak
+behaviour of this Github Action:
+
+- `NO_AUTOCLOSE_PROJECTS`: By default this action will automatically close PR
+  task it opens. It will not close merged tasks when they are added to projects
+  listed in this variable (comma separated string of IDs). (default: REVIEW/RELEASE project)
+- `SKIPPED_USERS`: Some users don't like receiving reviews in Asana. This is a
+  comma separated list of github usernames that will be ignored (replaced with
+  dax).
 
 ## Building
 Run once: `npm i -g @vercel/ncc`
