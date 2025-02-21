@@ -1,5 +1,5 @@
 import {describe, expect, test, jest} from '@jest/globals'
-import {getDueOn} from '../helper'
+import {getDueOn} from '../src/helper'
 
 describe('helper methods', () => {
   test('getDueOn', () => {

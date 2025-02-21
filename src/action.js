@@ -5,6 +5,7 @@ const asana = require('asana');
 const yaml = require('js-yaml');
 const { Client4 } = require('@mattermost/client');
 const { prSync } = require('../dist/pr'); // Import the compiled prSync function
+import fetch from "node-fetch";
 
 function buildAsanaClient() {
     const ASANA_PAT = core.getInput('asana-pat');
@@ -16,8 +17,11 @@ function buildAsanaClient() {
 
 function buildGithubClient(githubPAT){
     return new octokit.Octokit({
-        auth: githubPAT
-      })
+        auth: githubPAT,
+        request: {
+            fetch: fetch,
+        },
+        });
 }
 
 function buildMattermostClient(){
