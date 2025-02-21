@@ -4,7 +4,7 @@ const octokit = require('@octokit/core');
 const asana = require('asana');
 const yaml = require('js-yaml');
 const { Client4 } = require('@mattermost/client');
-const { prSync } = require('./dist/pr'); // Import the compiled prSync function
+const { prSync } = require('../dist/pr'); // Import the compiled prSync function
 
 function buildAsanaClient() {
     const ASANA_PAT = core.getInput('asana-pat');
