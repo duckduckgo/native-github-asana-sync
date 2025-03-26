@@ -38,6 +38,7 @@ function findAsanaTasks(){
     const
         TRIGGER_PHRASE = core.getInput('trigger-phrase'),
         PULL_REQUEST = github.context.payload.pull_request,
+        SPECIFIED_PROJECT_ID = core.getInput('asana-project'),
         REGEX_STRING = `${TRIGGER_PHRASE} https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
         REGEX = new RegExp(REGEX_STRING, 'g');
  
@@ -45,10 +46,18 @@ function findAsanaTasks(){
     let foundTasks = [];
     while((parseAsanaUrl = REGEX.exec(PULL_REQUEST.body)) !== null) {
         const taskId = parseAsanaUrl.groups.task;
+        const projectId = parseAsanaUrl.groups.project;
+        
         if (!taskId) {
             core.error(`Invalid Asana task URL after trigger-phrase ${TRIGGER_PHRASE}`);
             continue;
         }
+        
+        if (SPECIFIED_PROJECT_ID && SPECIFIED_PROJECT_ID !== projectId) {
+            console.info(`Skipping ${taskId} as it is not in project ${SPECIFIED_PROJECT_ID}`);
+            continue;
+        }
+        
         foundTasks.push(taskId);
     }
     console.info(`found ${foundTasks.length} tasksIds:`, foundTasks.join(','));

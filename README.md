@@ -138,6 +138,9 @@ For PRs that are opened by members of the organisation, it will look for an Asan
 ### `trigger-phrase`
 **Required** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/.
 
+### `asana-project`
+**optional** If provided, only Asana tasks in this specific project will be considered.
+
 ### `is-pinned`
 **optional** Pinned the PR comment when set to `true`
 
