@@ -58,7 +58,7 @@ jobs:
 When a Pull Request has been reviewed, it will look for an Asana task in the PR description and comment on it.
 ### `trigger-phrase`
 
-**Required** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/.
+**Optional** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/. If not provided, any Asana URL in the text will be matched.
 
 #### Example Usage
 
@@ -136,7 +136,7 @@ jobs:
 ### Comment on Asana task when PR has been opened
 For PRs that are opened by members of the organisation, it will look for an Asana task in the PR description and comment on it with the PR link.
 ### `trigger-phrase`
-**Required** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/.
+**Optional** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/. If not provided, any Asana URL in the text will be matched.
 
 ### `asana-project`
 **optional** If provided, only Asana tasks in this specific project will be considered.

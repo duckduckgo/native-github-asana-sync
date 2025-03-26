@@ -37,7 +37,7 @@ inputs:
     description: 'Comma-separated Asana user IDs or emails of users to be added as followers.'
     required: false
   trigger-phrase:
-    description: 'Prefix used to identify Asana tasks (URL).'
+    description: 'Prefix used to identify Asana tasks (URL). If not provided, any Asana URL in the text will be matched.'
     required: false
   github-repository:
     description: 'Github Repository to check for the latest release.'
