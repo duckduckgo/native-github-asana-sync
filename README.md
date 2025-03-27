@@ -24,9 +24,9 @@ This action integrates asana with github.
 * `check-pr-membership` checks the PR sender membership in the organisation that owns the repo
 * `add-asana-comment` adds a comment to the Asana task with the link to the Pull Request
 * `add-task-asana-project` adds a task to a project / section in Asana
-* `create-asana-pr-task` to create a task in Asana based on the Github Pull Request 
+* `create-asana-pr-task` to create a task in Asana based on the Github Pull Request
 * `get-latest-repo-release` to find the latest release version of a Github Repository
-* `create-asana-task` to create a task in Asana 
+* `create-asana-task` to create a task in Asana
 * `get-asana-user-id` to return the Asana User Id of a given Github actor
 * `find-asana-task-id` searches in the PR description for an Asana Task, given a prefix
 * `post-comment-asana-task` to post a comment in an Asana task
@@ -58,7 +58,7 @@ jobs:
 When a Pull Request has been reviewed, it will look for an Asana task in the PR description and comment on it.
 ### `trigger-phrase`
 
-**Required** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/.
+**Optional** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/. If not provided, any Asana URL in the text will be matched.
 
 #### Example Usage
 
@@ -136,7 +136,10 @@ jobs:
 ### Comment on Asana task when PR has been opened
 For PRs that are opened by members of the organisation, it will look for an Asana task in the PR description and comment on it with the PR link.
 ### `trigger-phrase`
-**Required** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/.
+**Optional** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/. If not provided, any Asana URL in the text will be matched.
+
+### `asana-project`
+**optional** If provided, only Asana tasks in this specific project will be considered.
 
 ### `is-pinned`
 **optional** Pinned the PR comment when set to `true`
@@ -164,10 +167,10 @@ jobs:
           action: 'add-asana-comment'
 ```
 
-### Add task to an Asana project
-Adds a task to an Asana project and section. The action will look for an Asana task in the PR description.
+### Add task(s) to an Asana project
+Adds one or more tasks to an Asana project and section. The action will look for Asana task(s) in the PR description.
 ### `trigger-phrase`
-**Required** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/.
+**Optional** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/. If not provided, any Asana URL in the text will be matched.
 ### `asana-project`
 **Required** Id of the Asana project that the task will be added to. Task will be added to the top of the project.
 ### `asana-section`
@@ -211,7 +214,7 @@ jobs:
     steps:
       - name: Create Asana task in Asana Project
         uses: duckduckgo/native-github-asana-sync@v1.1
-        with:          
+        with:
           asana-project: 'Asana Project Id'
           action: 'create-asana-pr-task'
 ```
@@ -278,7 +281,7 @@ jobs:
     steps:
       - name: Create Asana task in Asana Project
         uses: duckduckgo/native-github-asana-sync@v1.1
-        with:          
+        with:
           asana-project: 'Asana Project Id'
           asana-section: 'Asana Section Id'
           asana-task-name: 'Asana Task Name'
@@ -322,7 +325,7 @@ jobs:
 Searches for an Asana URL in the PR description, given a prefix. Returns the Asana Task Id if found.
 
 ### `trigger-phrase`
-**Required** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/.
+**Optional** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/. If not provided, any Asana URL in the text will be matched.
 
 #### Example Usage
 
@@ -339,12 +342,41 @@ jobs:
         uses: ./actions
         id: find-asana-task-id
         with:
-          action: 'find-asana-task-id'          
+          action: 'find-asana-task-id'
           trigger-phrase: 'Task/Issue URL:'
 
       - name: Use Asana Task ID from above step
         with:
           asana-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
+```
+
+### Find multiple Asana task Ids in PR description
+Searches for Asana URLs in the PR description, given a prefix. Returns a comma-separated list of Asana Task Ids if found. The action will fail if no tasks are found.
+
+### `trigger-phrase`
+**Optional** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/. If not provided, any Asana URL in the text will be matched.
+
+#### Example Usage
+
+```yaml
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find Asana Tasks in PR description
+        uses: ./actions
+        id: find-asana-task-ids
+        with:
+          action: 'find-asana-task-ids'
+          trigger-phrase: 'Task/Issue URL:'
+
+      - name: Use Asana Task IDs from above step
+        with:
+          asana-task-id: '${{ steps.find-asana-task-ids.outputs.asanaTaskIds }}'
 ```
 
 ### Post comment in Asana task
@@ -353,7 +385,7 @@ Posts a comment in a given Asana Task
 ### `asana-pat`
 **Required** Asana public access token
 ### `asana-task-id`
-**Required** Id of the task to write the comment on.
+**Required** Id of the task(s) to write the comment on. Can be a single ID or a comma-separated list of IDs.
 ### `asana-task-comment`
 **Required** Comment to be posted.
 ### `asana-task-comment-pinned`
@@ -371,7 +403,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Add Approved Comment to Asana Task
-        if: github.event.review.state == 'approved'      
+        if: github.event.review.state == 'approved'
         uses: ./actions
         id: post-comment-pr-approved
         with:
