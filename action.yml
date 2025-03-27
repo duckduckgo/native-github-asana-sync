@@ -20,7 +20,7 @@ inputs:
     description: 'Name of the Asana task you want to create.'
     required: false
   asana-task-id:
-    description: 'Id of the Asana task you want to interact with.'
+    description: 'Id of the Asana task(s) you want to interact with. Can be a single ID or a comma-separated list of IDs.'
     required: false
   asana-task-comment:
     description: 'Comment to be added to an Asana task.'

@@ -167,8 +167,8 @@ jobs:
           action: 'add-asana-comment'
 ```
 
-### Add task to an Asana project
-Adds a task to an Asana project and section. The action will look for an Asana task in the PR description.
+### Add task(s) to an Asana project
+Adds one or more tasks to an Asana project and section. The action will look for Asana task(s) in the PR description.
 ### `trigger-phrase`
 **Required** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/.
 ### `asana-project`
@@ -350,13 +350,42 @@ jobs:
           asana-task-id: '${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
 ```
 
+### Find multiple Asana task Ids in PR description
+Searches for Asana URLs in the PR description, given a prefix. Returns a comma-separated list of Asana Task Ids if found. The action will fail if no tasks are found.
+
+### `trigger-phrase`
+**Required** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/.
+
+#### Example Usage
+
+```yaml
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find Asana Tasks in PR description
+        uses: ./actions
+        id: find-asana-task-ids
+        with:
+          action: 'find-asana-task-ids'          
+          trigger-phrase: 'Task/Issue URL:'
+
+      - name: Use Asana Task IDs from above step
+        with:
+          asana-task-id: '${{ steps.find-asana-task-ids.outputs.asanaTaskIds }}'
+```
+
 ### Post comment in Asana task
 Posts a comment in a given Asana Task
 
 ### `asana-pat`
 **Required** Asana public access token
 ### `asana-task-id`
-**Required** Id of the task to write the comment on.
+**Required** Id of the task(s) to write the comment on. Can be a single ID or a comma-separated list of IDs.
 ### `asana-task-comment`
 **Required** Comment to be posted.
 ### `asana-task-comment-pinned`
