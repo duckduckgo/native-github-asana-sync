@@ -37,8 +37,8 @@ jobs:
         id: create-review-task
         with:
           asana-pat: ${{ secrets.asana_pat }}
-          asana-project: '69071770703008'
-          asana-tags: '1208613272217946'
+          asana-project: '1209820243661140' #'69071770703008'
+#          asana-tags: '1208613272217946'
           asana-collaborators: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
           asana-task-name: 'Privacy Triage: ${{ inputs.team_name }} - ${{ github.event.pull_request.title }}'
           asana-task-description: 'PR: ${{ github.event.pull_request.html_url }}/files?file-filters[]=.json&file-filters[]=.json5'
