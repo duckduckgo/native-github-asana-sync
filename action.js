@@ -31,33 +31,24 @@ function buildMattermostClient(){
 }
 
 function getArrayFromInput(input) {
-  return input ? input.split(',').map(item => item.trim()).filter(item => item !== '') : [];
+    return input ? input.split(',') : [];
 }
 
 function findAsanaTasks(){
     const
         TRIGGER_PHRASE = core.getInput('trigger-phrase'),
         PULL_REQUEST = github.context.payload.pull_request,
-        SPECIFIED_PROJECT_ID = core.getInput('asana-project'),
-        REGEX_STRING = `${TRIGGER_PHRASE ? `${TRIGGER_PHRASE} ` : ''}https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
+        REGEX_STRING = `${TRIGGER_PHRASE} https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
         REGEX = new RegExp(REGEX_STRING, 'g');
  
     console.info('looking for asana task link in body', PULL_REQUEST.body, 'regex', REGEX_STRING);
     let foundTasks = [];
     while((parseAsanaUrl = REGEX.exec(PULL_REQUEST.body)) !== null) {
         const taskId = parseAsanaUrl.groups.task;
-        const projectId = parseAsanaUrl.groups.project;
-        
         if (!taskId) {
-            core.error(`Invalid Asana task URL${TRIGGER_PHRASE ? ` after trigger-phrase ${TRIGGER_PHRASE}` : ''}`);
+            core.error(`Invalid Asana task URL after trigger-phrase ${TRIGGER_PHRASE}`);
             continue;
         }
-        
-        if (SPECIFIED_PROJECT_ID && SPECIFIED_PROJECT_ID !== projectId) {
-            console.info(`Skipping ${taskId} as it is not in project ${SPECIFIED_PROJECT_ID}`);
-            continue;
-        }
-        
         foundTasks.push(taskId);
     }
     console.info(`found ${foundTasks.length} tasksIds:`, foundTasks.join(','));
@@ -126,17 +117,9 @@ async function addTaskToAsanaProject(){
 
     const projectId = core.getInput('asana-project', {required: true});
     const sectionId = core.getInput('asana-section');
-    const taskIds = getArrayFromInput(getInput('asana-task-id', {required: true}));
-    
-    if (taskIds.length === 0) {
-        core.setFailed(`No valid task IDs provided`);
-        return;
-    }
-    
-    for (const taskId of taskIds) {
-        console.info(`Adding task ${taskId} to project ${projectId}`);
-        await addTaskToProject(client, taskId, projectId, sectionId);
-    }
+    const taskId = core.getInput('asana-task-id', {required: true});
+
+    addTaskToProject(client, taskId, projectId, sectionId)     
 }
 
 async function addTaskToProject(client, taskId, projectId, sectionId){
@@ -414,44 +397,21 @@ async function findAsanaTaskId(){
     }
 }
 
-async function findAsanaTaskIds(){
-    const foundTasks = findAsanaTasks()
-
-    if (foundTasks.length > 0) {
-        core.setOutput('asanaTaskIds', foundTasks.join(','));
-    } else {
-        core.setFailed(`Can't find any Asana tasks with the expected prefix`);
-    }
-}
-
 async function postCommentAsanaTask(){
     const client = await buildAsanaClient();
 
     const
-        TASK_IDS = getArrayFromInput(getInput('asana-task-id')),
-        TASK_COMMENT = core.getInput('asana-task-comment'),
-        IS_PINNED = core.getInput('asana-task-comment-pinned');
+        TASK_ID = core.getInput('asana-task-id'),
+        TASK_COMMENT = core.getInput('asana-task-comment')
+        IS_PINNED = core.getInput('asana-task-comment-pinned')
 
-    if (TASK_IDS.length === 0) {
-        core.setFailed(`No valid task IDs provided`);
-        return;
-    }
-
-    let success = true;
-    for (const taskId of TASK_IDS) {
-        console.info(`Adding comment to Asana task ${taskId}`);
-        const comment = await createStory(client, taskId, TASK_COMMENT, IS_PINNED);
-        if (comment == null) {
-            console.error(`Failed to add comment to task ${taskId}`);
-            success = false;
-        }
-    }
-    
-    if (success) {
-        console.info(`Comments added to ${taskIds.length} Asana task(s)`);
+    const comment = createStory(client, TASK_ID, TASK_COMMENT, IS_PINNED)
+    if (comment != null){
+        console.info('Comment added to Asana task');
     } else {
-        core.setFailed(`Failed to post comments to one or more Asana tasks`);
+        core.setFailed(`Can't post comment in Asana task`);
     }
+   
 }
 
 async function sendMessage(client, channelId, message) {
@@ -534,10 +494,6 @@ async function action() {
         }
         case 'find-asana-task-id': {
             findAsanaTaskId();
-            break;
-        }
-        case 'find-asana-task-ids': {
-            findAsanaTaskIds();
             break;
         }
         case 'post-comment-asana-task': {
