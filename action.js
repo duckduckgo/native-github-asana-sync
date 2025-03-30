@@ -126,7 +126,7 @@ async function addTaskToAsanaProject(){
 
     const projectId = core.getInput('asana-project', {required: true});
     const sectionId = core.getInput('asana-section');
-    const taskIds = getArrayFromInput(getInput('asana-task-id', {required: true}));
+    const taskIds = getArrayFromInput(core.getInput('asana-task-id', {required: true}));
     
     if (taskIds.length === 0) {
         core.setFailed(`No valid task IDs provided`);
