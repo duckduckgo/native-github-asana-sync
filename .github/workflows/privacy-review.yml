@@ -2,6 +2,9 @@ name: Start Privacy Review
 on:
   workflow_call:
     inputs:
+      trigger-phrase:
+        required: false
+        type: string
       team_name:
         required: true
         type: string
@@ -29,19 +32,27 @@ jobs:
         uses: ./actions
         id: get-author-asana-id
         with:
-          github-pat: ${{ secrets.github_pat }}
           action: 'get-asana-user-id'
+          github-pat: ${{ secrets.github_pat }}
+
+      - name: Find Asana Task in PR description
+        uses: ./actions
+        id: find-asana-task-id
+        with:
+          action: 'find-asana-task-id'
+          trigger-phrase: ${{ inputs.trigger-phrase }}
 
       - name: Create Privacy Review task
         uses: ./actions
         id: create-review-task
         with:
           asana-pat: ${{ secrets.asana_pat }}
-          asana-project: '69071770703008'
-          asana-tags: '1208613272217946'
+          asana-project: '1209820243661140' #'69071770703008'
+          #asana-tags: '1208613272217946'
           asana-collaborators: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
           asana-task-name: 'Privacy Triage: ${{ inputs.team_name }} - ${{ github.event.pull_request.title }}'
-          asana-task-description: 'PR: ${{ github.event.pull_request.html_url }}/files?file-filters[]=.json&file-filters[]=.json5'
+          asana-task-description: 'PR: ${{ github.event.pull_request.html_url }}/files?file-filters[]=.json&file-filters[]=.json5\n\nPR Author: ${{ github.event.pull_request.user.login }}\n\nAsana Task: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
+          asana-task-assignee: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
           action: 'create-asana-task'
 
       - name: Add Privacy Review task to PR
