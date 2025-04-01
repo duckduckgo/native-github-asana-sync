@@ -51,7 +51,7 @@ jobs:
           #asana-tags: '1208613272217946'
           asana-collaborators: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
           asana-task-name: 'Privacy Triage: ${{ inputs.team_name }} - ${{ github.event.pull_request.title }}'
-          asana-task-description: 'PR: ${{ github.event.pull_request.html_url }}/files?file-filters[]=.json&file-filters[]=.json5\n\nPR Author: ${{ github.event.pull_request.user.login }}\n\nAsana Task: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
+          asana-task-description: 'PR: ${{ github.event.pull_request.html_url }}/files?file-filters[]=.json&file-filters[]=.json5<br>PR Author: ${{ github.event.pull_request.user.login }}<br>Asana Task: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}'
           asana-task-assignee: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
           action: 'create-asana-task'
 
