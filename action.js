@@ -266,13 +266,14 @@ async function findTaskInSection(client, sectionId, name) {
     return existingTaskId
 }
 
-async function createTask(client, name, description, projectId, sectionId = '', tags = [], collaborators = []) {
+async function createTask(client, name, description, projectId, sectionId = '', tags = [], collaborators = [], assignee = '') {
     const taskOpts = {
         name: name,
         notes: description,
         projects: [projectId],
         tags,
         followers: collaborators,
+        assignee: assignee,
         pretty: true
     };
 
@@ -315,8 +316,9 @@ async function createAsanaTask(){
         taskDescription = core.getInput('asana-task-description', {required: true}),
         tags = getArrayFromInput(core.getInput('asana-tags')),
         collaborators = getArrayFromInput(core.getInput('asana-collaborators'));
+        assignee = core.getInput('asana-task-assignee');
 
-    return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators);
+    return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee);
 }
 
 async function addTaskPRDescription(){

@@ -56,14 +56,17 @@ inputs:
     required: false
   mattermost-message:
     description: 'Message to send in Mattermost.'
-    required: false    
+    required: false
   mattermost-team-id:
     description: 'Id of team to use in Mattermost.'
-    required: false   
+    required: false
   mattermost-token:
     description: 'Token to use for the Mattermost connection.'
-    required: false 
-    
+    required: false
+  asana-task-assignee:
+    description: 'GID of user to assign the task to'
+    required: false
+
 runs:
   using: 'node20'
   main: 'dist/index.js'
