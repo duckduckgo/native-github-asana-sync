@@ -44,10 +44,10 @@ function findAsanaTasks(){
     const
         TRIGGER_PHRASE = core.getInput('trigger-phrase'),
         PULL_REQUEST = github.context.payload.pull_request,
-        REGEX_STRING = `${TRIGGER_PHRASE}https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
+        REGEX_STRING = `${TRIGGER_PHRASE}\s*https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
         REGEX = new RegExp(REGEX_STRING, 'g');
 
-    console.info('XXX looking for asana task link in body:\n', PULL_REQUEST.body, 'regex:\n', REGEX_STRING);
+    console.info('Looking for asana task link in body:\n', PULL_REQUEST.body, 'regex:\n', REGEX_STRING);
     let foundTasks = [];
     while((parseAsanaUrl = REGEX.exec(PULL_REQUEST.body)) !== null) {
         const taskId = parseAsanaUrl.groups.task;
@@ -405,6 +405,32 @@ async function findAsanaTaskId(){
     }
 }
 
+async function findAsanaTaskParentId(){
+    const foundTasks = findAsanaTasks()
+
+    if (foundTasks.length > 1) {
+        core.setOutput('asanaTaskId', foundTasks[1]);
+    }
+}
+
+async function getTaskPermalink(asanaTaskId){
+    const task = client.getTasks(asanaTaskId);
+    const taskId = task.data.gid;
+    const projectId = task.data.projects[0].gid;
+    const taskName = task.data.name;
+    const permalink = `https://app.asana.com/0/${projectId}/${taskId}/f`;
+    console.log(`Parent task ${taskName} permalink: ${permalink}`);
+    return permalink;
+}
+
+async function getParentPermalink(){
+    const foundTask = findAsanaTaskParentId()
+
+    if (foundTask) {
+        core.setOutput('asanaTaskParentLink', await getTaskPermalink(foundTask));
+    }
+}
+
 async function postCommentAsanaTask(){
     const client = await buildAsanaClient();
 
@@ -510,6 +536,10 @@ async function action() {
         }
         case 'send-mattermost-message': {
             sendMattermostMessage();
+            break;
+        }
+        case 'get-asana-task-parent-link': {
+            getParentPermalink();
             break;
         }
         default:
