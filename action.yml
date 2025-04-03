@@ -69,6 +69,9 @@ inputs:
   get-asana-task-parent-link:
     description: 'Get the parent task ID of a given Asana task ID'
     required: false
+  asana-task-custom-field-category:
+    description: 'Asana task custom field named Category'
+    required: false
 
 runs:
   using: 'node20'

@@ -272,17 +272,25 @@ async function findTaskInSection(client, sectionId, name) {
     return existingTaskId
 }
 
-async function createTask(client, name, description, projectId, sectionId = '', tags = [], collaborators = [], assignee = '') {
+async function createTask(client, name, description, projectId, sectionId = '', tags = [], collaborators = [], assignee = '', category = '') {
     const taskOpts = {
         name: name,
         notes: description,
         projects: [projectId],
         tags,
         followers: collaborators,
-        assignee: assignee,
         pretty: true
     };
 
+    if (assignee != '') {
+        taskOpts.assignee = assignee;
+    }
+
+    if (category != '') {
+        taskOpts.custom_fields = {
+            '1209820479362827': '1209820479383203'
+        }
+    }
     if (sectionId != '') {
         console.log('checking for duplicate task before creating a new one', name);
         let existingTaskId = await findTaskInSection(client, sectionId, name)
@@ -323,8 +331,9 @@ async function createAsanaTask(){
         tags = getArrayFromInput(core.getInput('asana-tags')),
         collaborators = getArrayFromInput(core.getInput('asana-collaborators'));
         assignee = core.getInput('asana-task-assignee');
+        category = core.getInput('asana-task-custom-field-category');
 
-    return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee);
+    return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee, category);
 }
 
 async function addTaskPRDescription(){
@@ -371,19 +380,22 @@ async function getAsanaUserID() {
     GITHUB_PAT = core.getInput('github-pat', {required: true}),
     githubClient = buildGithubClient(GITHUB_PAT),
     ORG = 'duckduckgo',
-    REPO = 'internal-github-asana-utils';
+    REPO = 'internal-github-asana-utils',
+    BRANCH = 'la/fix-ladamski-mapping';
 
     console.log(`Looking up Asana user ID for ${ghUsername}`);
     try {
         await githubClient.request('GET /repos/{owner}/{repo}/contents/user_map.yml', {
             owner: ORG,
             repo: REPO,
+            ref: BRANCH,
             headers: {
                 'X-GitHub-Api-Version': '2022-11-28',
                 'Accept': 'application/vnd.github.raw+json'
             }
         }).then((response) => {
             const userMap = yaml.load(response.data);
+            console.warn('userMap', JSON.stringify(userMap));
             if (ghUsername in userMap) {
                 core.setOutput('asanaUserId', userMap[ghUsername]);
             } else {
@@ -405,22 +417,31 @@ async function findAsanaTaskId(){
     }
 }
 
-async function findAsanaTaskParentId(){
+function findAsanaTaskParentId(){
     const foundTasks = findAsanaTasks()
-
-    if (foundTasks.length > 1) {
-        core.setOutput('asanaTaskId', foundTasks[1]);
+    console.log('Got tasks', JSON.stringify(foundTasks))
+    if (foundTasks.length > 0) {
+        return foundTasks[0];
     }
 }
 
 async function getTaskPermalink(asanaTaskId){
-    const task = client.getTasks(asanaTaskId);
-    const taskId = task.data.gid;
-    const projectId = task.data.projects[0].gid;
-    const taskName = task.data.name;
-    const permalink = `https://app.asana.com/0/${projectId}/${taskId}/f`;
-    console.log(`Parent task ${taskName} permalink: ${permalink}`);
-    return permalink;
+    const client = await buildAsanaClient();
+
+    console.log(`Getting project for ${asanaTaskId}`)
+    const task = await client.tasks.getTask(asanaTaskId);
+    console.log('Got task details', JSON.stringify(task));
+    // const taskId = task.data.gid;
+    if (task.projects.length > 0) {
+        const project = task.projects[0];
+        const projectId = project.gid;
+        const projectName = project.name;
+        const permalink = `https://app.asana.com/0/${projectId}/${asanaTaskId}/`;
+        console.log(`Project task ${projectName} permalink: ${permalink}`);
+        return permalink;
+    }
+
+    return null;
 }
 
 async function getParentPermalink(){
