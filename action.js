@@ -428,7 +428,7 @@ async function postCommentAsanaTask(){
     const client = await buildAsanaClient();
 
     const
-        TASK_IDS = getArrayFromInput(getInput('asana-task-id')),
+        TASK_IDS = getArrayFromInput(core.getInput('asana-task-id')),
         TASK_COMMENT = core.getInput('asana-task-comment'),
         IS_PINNED = core.getInput('asana-task-comment-pinned');
 
