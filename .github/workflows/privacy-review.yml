@@ -57,7 +57,6 @@ jobs:
           asana-pat: ${{ secrets.asana_pat }}
           asana-project: '1209820243661140' #'69071770703008'
           #asana-tags: '1208613272217946'
-          asana-task-assignee: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
           asana-collaborators: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
           asana-task-name: 'Privacy Triage: ${{ inputs.team_name }} - ${{ github.event.pull_request.title }}'
           asana-task-description: |
