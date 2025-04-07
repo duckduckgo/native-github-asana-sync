@@ -87,7 +87,7 @@ jobs:
           asana-task-id: ${{ steps.create-review-task.outputs.taskId }}
           asana-task-comment: |
             https://app.asana.com/0/profile/${{ steps.get-author-asana-id.outputs.asanaUserId }} this triage task has been created for your PR: ${{ github.event.pull_request.html_url }}
-            Please check the task description and add any context that could help speed up the review process!
+            Please check the task description, set the Objective and Priority fields, and add any context that could help speed up the review process!
           asana-task-comment-pinned: false
           action: 'post-comment-asana-task'
 
