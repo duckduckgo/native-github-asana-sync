@@ -61,7 +61,6 @@ jobs:
           asana-task-name: 'Privacy Triage: ${{ inputs.team_name }} - ${{ github.event.pull_request.title }}'
           asana-task-description: |
             PR: ${{ github.event.pull_request.html_url }}/files?file-filters[]=.json&file-filters[]=.json5
-            PR Author: https://app.asana.com/0/profile/${{ steps.get-author-asana-id.outputs.asanaUserId }}
             Project Task: ${{ steps.get-parent-task-id.outputs.asanaTaskParentLink }}
           asana-task-custom-field-category: 'Pixels'
           action: 'create-asana-task'
@@ -85,11 +84,7 @@ jobs:
           asana-pat: ${{ secrets.asana_pat }}
           asana-task-id: ${{ steps.create-review-task.outputs.taskId }}
           asana-task-comment: |
-            https://app.asana.com/0/profile/${{ steps.get-author-asana-id.outputs.asanaUserId }} this triage task has been created for your PR: ${{ github.event.pull_request.html_url }}
+            PR owner, this triage task has been created for your PR: ${{ github.event.pull_request.html_url }}
             Please check the task description, set the Objective and Priority fields, and add any context that could help speed up the review process!
           asana-task-comment-pinned: false
           action: 'post-comment-asana-task'
-
-          # TASK_ID = core.getInput('asana-task-id'),
-          # TASK_COMMENT = core.getInput('asana-task-comment')
-          # IS_PINNED = core.getInput('asana-task-comment-pinned')
