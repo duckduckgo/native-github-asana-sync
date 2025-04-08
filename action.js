@@ -448,7 +448,7 @@ async function postCommentAsanaTask(){
     }
     
     if (success) {
-        console.info(`Comments added to ${taskIds.length} Asana task(s)`);
+        console.info(`Comments added to ${TASK_IDS.length} Asana task(s)`);
     } else {
         core.setFailed(`Failed to post comments to one or more Asana tasks`);
     }
