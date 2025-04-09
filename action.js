@@ -391,22 +391,19 @@ async function getAsanaUserID() {
     GITHUB_PAT = core.getInput('github-pat', {required: true}),
     githubClient = buildGithubClient(GITHUB_PAT),
     ORG = 'duckduckgo',
-    REPO = 'internal-github-asana-utils',
-    BRANCH = 'la/fix-ladamski-mapping';
+    REPO = 'internal-github-asana-utils';
 
     console.log(`Looking up Asana user ID for ${ghUsername}`);
     try {
         await githubClient.request('GET /repos/{owner}/{repo}/contents/user_map.yml', {
             owner: ORG,
             repo: REPO,
-            ref: BRANCH,
             headers: {
                 'X-GitHub-Api-Version': '2022-11-28',
                 'Accept': 'application/vnd.github.raw+json'
             }
         }).then((response) => {
             const userMap = yaml.load(response.data);
-            console.warn('userMap', JSON.stringify(userMap));
             if (ghUsername in userMap) {
                 core.setOutput('asanaUserId', userMap[ghUsername]);
             } else {
