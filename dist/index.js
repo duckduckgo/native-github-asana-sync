@@ -304,7 +304,11 @@ async function createTask(client, name, description, projectId, sectionId = '', 
     }
 
     if (customFields != '') {
-        taskOpts.custom_fields = JSON.parse(customFields);
+        try {
+            taskOpts.custom_fields = JSON.parse(customFields);
+        } catch (error) {
+            console.error(`Invalid custom fields JSON: ${customFields}`);
+        }
     }
 
     if (sectionId != '') {
@@ -442,7 +446,7 @@ async function getTaskPermalink(){
             console.log(`Task permalink: ${ task.permalink_url}`);
         }
     } catch (error) {
-        console.error(`Failed to retrieve task ${asanaTaskId}:`, JSON.stringify(error));
+        core.setFailed(`Failed to retrieve task ${asanaTaskId}:`, JSON.stringify(error));
     }
 }
 

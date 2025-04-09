@@ -298,7 +298,11 @@ async function createTask(client, name, description, projectId, sectionId = '', 
     }
 
     if (customFields != '') {
-        taskOpts.custom_fields = JSON.parse(customFields);
+        try {
+            taskOpts.custom_fields = JSON.parse(customFields);
+        } catch (error) {
+            console.error(`Invalid custom fields JSON: ${customFields}`);
+        }
     }
 
     if (sectionId != '') {
