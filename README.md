@@ -30,6 +30,7 @@ This action integrates asana with github.
 * `get-asana-user-id` to return the Asana User Id of a given Github actor
 * `find-asana-task-id` searches in the PR description for an Asana Task, given a prefix
 * `post-comment-asana-task` to post a comment in an Asana task
+* `get-asana-task-permalink` to get the permalink for a given Asana Task ID
 
 ### Create Asana task from Github Issue
 When a Github Issue has been added, it will create an Asana task with the Issue title, description and link.
@@ -264,8 +265,13 @@ The Asana section ID in the Asana Project
 **Required** Description of the Asana task
 ### `asana-tags`
 Comma-separated IDs of Asana tags to be added to the task i.e. https://app.asana.com/0/1208613272217946/
+### `asana-task-custom-fields`
+Asana task custom fields hash, encoded as a JSON string i.e. '{"XXXXX":"YYYYY"}'
+* Note: you can retrieve the list of possible custom fields for a given project via the Asana API.  i.e. https://app.asana.com/api/1.0/projects/69071770703008
 ### `asana-collaborators`
 Comma-separated Asana user IDs to be added as collaborators to the task
+### `asana-assignee`
+GID of user to assign the task to
 * Note: you can use https://app.asana.com/api/1.0/users/me to find your ID. Replace `me` with an email to find someone else's
 
 #### Example Usage
@@ -291,7 +297,7 @@ jobs:
 ```
 
 ### Get Asana user ID
-Returns Asana user ID for a provided Github username
+Returns Asana user ID for a provided Github username.  This relies on a Github - Asana mapping as defined in https://github.com/duckduckgo/internal-github-asana-utils/blob/main/user_map.yml
 
 ### `github-pat`
 **Required** Github public access token
@@ -446,6 +452,35 @@ jobs:
           mattermost-channel-name: 'channel'
           mattermost-message: ${{env.emoji_start}}'" Android Release ${{ env.APP_VERSION }} started by @${{ github.actor }}. https://github.com/duckduckgo/Android/actions/runs/${{ github.run_id }}
           action: 'send-mattermost-message'
+
+```
+
+### Get permalink for a given Asana Task ID
+Get permalink for a given Asana Task ID
+
+### `asana-pat`
+**Required** Asana public access token
+### `asana-task-id`
+**Required** Task gid for permalink
+
+#### Example Usage
+
+```yaml
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get permalink to Asana Task
+        uses: ./actions
+        id: get-task-permalink
+        with:
+          action: 'get-asana-task-permalink'
+          asana-pat: ${{ secrets.asana_pat }}
+          asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
 
 ```
 

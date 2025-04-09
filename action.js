@@ -38,26 +38,26 @@ function findAsanaTasks(){
     const
         TRIGGER_PHRASE = core.getInput('trigger-phrase'),
         PULL_REQUEST = github.context.payload.pull_request,
+        REGEX_STRING = `${TRIGGER_PHRASE}\s*https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
         SPECIFIED_PROJECT_ID = core.getInput('asana-project'),
-        REGEX_STRING = `${TRIGGER_PHRASE ? `${TRIGGER_PHRASE} ` : ''}https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
         REGEX = new RegExp(REGEX_STRING, 'g');
- 
-    console.info('looking for asana task link in body', PULL_REQUEST.body, 'regex', REGEX_STRING);
+
+    console.info('Looking for asana task link in body:\n', PULL_REQUEST.body, 'regex:\n', REGEX_STRING);
     let foundTasks = [];
     while((parseAsanaUrl = REGEX.exec(PULL_REQUEST.body)) !== null) {
         const taskId = parseAsanaUrl.groups.task;
         const projectId = parseAsanaUrl.groups.project;
-        
+
         if (!taskId) {
             core.error(`Invalid Asana task URL${TRIGGER_PHRASE ? ` after trigger-phrase ${TRIGGER_PHRASE}` : ''}`);
             continue;
         }
-        
+
         if (SPECIFIED_PROJECT_ID && SPECIFIED_PROJECT_ID !== projectId) {
             console.info(`Skipping ${taskId} as it is not in project ${SPECIFIED_PROJECT_ID}`);
             continue;
         }
-        
+
         foundTasks.push(taskId);
     }
     console.info(`found ${foundTasks.length} tasksIds:`, foundTasks.join(','));
@@ -77,9 +77,9 @@ async function createStory(client, taskId, text, isPinned) {
 
 async function createTaskWithComment(client, name, description, comment, projectId) {
     try {
-        client.tasks.createTask({name: name, 
-            notes: description, 
-            projects: [projectId],        
+        client.tasks.createTask({name: name,
+            notes: description,
+            projects: [projectId],
             pretty: true})
             .then((result) => {
                 console.log('task created', result.gid);
@@ -107,7 +107,7 @@ async function createIssueTask(){
 
 async function notifyPRApproved(){
     const client = await buildAsanaClient();
-    const 
+    const
         PULL_REQUEST = github.context.payload.pull_request,
         TASK_COMMENT = `PR: ${PULL_REQUEST.html_url} has been approved`;
 
@@ -127,12 +127,12 @@ async function addTaskToAsanaProject(){
     const projectId = core.getInput('asana-project', {required: true});
     const sectionId = core.getInput('asana-section');
     const taskIds = getArrayFromInput(core.getInput('asana-task-id', {required: true}));
-    
+
     if (taskIds.length === 0) {
         core.setFailed(`No valid task IDs provided`);
         return;
     }
-    
+
     for (const taskId of taskIds) {
         console.info(`Adding task ${taskId} to project ${projectId}`);
         await addTaskToProject(client, taskId, projectId, sectionId);
@@ -144,7 +144,7 @@ async function addTaskToProject(client, taskId, projectId, sectionId){
         console.info('adding asana task to project', projectId);
         try {
             return await client.tasks.addProjectForTask(taskId, {
-                project: projectId,        
+                project: projectId,
                 insert_after: null
             });
         } catch (error) {
@@ -154,7 +154,7 @@ async function addTaskToProject(client, taskId, projectId, sectionId){
         console.info(`adding asana task to top of section ${sectionId} in project ${projectId}`);
         try {
             return await client.tasks.addProjectForTask(taskId, {
-                project: projectId                
+                project: projectId
             })
             .then((result) => {
                 client.sections.addTaskForSection(sectionId, {task: taskId})
@@ -169,7 +169,7 @@ async function addTaskToProject(client, taskId, projectId, sectionId){
 }
 
 async function addCommentToPRTask(){
-    const 
+    const
         PULL_REQUEST = github.context.payload.pull_request,
         TASK_COMMENT = `PR: ${PULL_REQUEST.html_url}`,
         isPinned = core.getInput('is-pinned') === 'true';
@@ -222,29 +222,29 @@ async function completePRTask(){
 }
 
 async function checkPRMembership(){
-    const 
+    const
         PULL_REQUEST = github.context.payload.pull_request,
         ORG = PULL_REQUEST.base.repo.owner.login,
         USER = PULL_REQUEST.user.login;
         HEAD = PULL_REQUEST.head.user.login
 
-        console.info(`PR opened/reopened by ${USER}, checking membership in ${ORG}`); 
+        console.info(`PR opened/reopened by ${USER}, checking membership in ${ORG}`);
         if (HEAD === ORG){
             console.log(author, `belongs to duckduckgo}`)
             core.setOutput('external', false)
           } else {
             console.log(author, `does not belong to duckduckgo}`)
             core.setOutput('external', true)
-          }          
+          }
 }
 
 async function getLatestRepositoryRelease(){
-    const 
+    const
         GITHUB_PAT = core.getInput('github-pat', {required: true}),
         githubClient = buildGithubClient(GITHUB_PAT),
         ORG = core.getInput('github-org', {required: true}),
         REPO = core.getInput('github-repository', {required: true});
-        
+
     try {
         await githubClient.request('GET /repos/{owner}/{repo}/releases/latest', {
             owner: ORG,
@@ -275,7 +275,7 @@ async function findTaskInSection(client, sectionId, name) {
             } else {
                 console.info('task found', task.gid);
                 existingTaskId = task.gid
-            }            
+            }
         });
     } catch (error) {
         console.error('rejecting promise', error);
@@ -283,15 +283,27 @@ async function findTaskInSection(client, sectionId, name) {
     return existingTaskId
 }
 
-async function createTask(client, name, description, projectId, sectionId = '', tags = [], collaborators = []) {
+async function createTask(client, name, description, projectId, sectionId = '', tags = [], collaborators = [], assignee = '', customFields = '') {
     const taskOpts = {
-        name: name, 
-        notes: description, 
+        name: name,
+        notes: description,
         projects: [projectId],
         tags,
         followers: collaborators,
         pretty: true
     };
+
+    if (assignee != '') {
+        taskOpts.assignee = assignee;
+    }
+
+    if (customFields != '') {
+        try {
+            taskOpts.custom_fields = JSON.parse(customFields);
+        } catch (error) {
+            console.error(`Invalid custom fields JSON: ${customFields}`);
+        }
+    }
 
     if (sectionId != '') {
         console.log('checking for duplicate task before creating a new one', name);
@@ -317,7 +329,7 @@ async function createTask(client, name, description, projectId, sectionId = '', 
                 core.setOutput('duplicate', false);
             })
     } catch (error) {
-        console.error('rejecting promise', error);
+        console.error('rejecting promise', JSON.stringify(error));
     }
     return createdTaskId
 }
@@ -325,26 +337,28 @@ async function createTask(client, name, description, projectId, sectionId = '', 
 async function createAsanaTask(){
     const client = await buildAsanaClient();
 
-    const 
+    const
         projectId = core.getInput('asana-project', {required: true}),
         sectionId = core.getInput('asana-section'),
         taskName = core.getInput('asana-task-name', {required: true}),
         taskDescription = core.getInput('asana-task-description', {required: true}),
         tags = getArrayFromInput(core.getInput('asana-tags')),
         collaborators = getArrayFromInput(core.getInput('asana-collaborators'));
+        assignee = core.getInput('asana-task-assignee');
+        customFields = core.getInput('asana-task-custom-fields');
 
-    return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators); 
+    return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee, customFields);
 }
 
 async function addTaskPRDescription(){
-    const 
+    const
         GITHUB_PAT = core.getInput('github-pat'),
         githubClient = buildGithubClient(GITHUB_PAT),
         ORG = core.getInput('github-org', {required: true}),
         REPO = core.getInput('github-repository', {required: true}),
         PR = core.getInput('github-pr', {required: true}),
         projectId = core.getInput('asana-project', {required: true}),
-        taskId = core.getInput('asana-task-id', {required: true});   
+        taskId = core.getInput('asana-task-id', {required: true});
 
         githubClient.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
             owner: ORG,
@@ -356,9 +370,9 @@ async function addTaskPRDescription(){
             }).then((response) => {
                 console.log(response.data.body);
                 const body = response.data.body;
-                const asanaTaskMessage = `Task/Issue URL: https://app.asana.com/0/${projectId}/${taskId}/f`;        
+                const asanaTaskMessage = `Task/Issue URL: https://app.asana.com/0/${projectId}/${taskId}/f`;
                 const updatedBody = `${asanaTaskMessage} \n\n ----- \n${body}`;
-        
+
                 githubClient.request('PATCH /repos/{owner}/{repo}/pulls/{pull_number}', {
                     owner: ORG,
                     repo: REPO,
@@ -369,19 +383,19 @@ async function addTaskPRDescription(){
                         }
                     })
                     .catch((error) => core.error(error));
-        
+
             });
-      
+
 }
 
 async function getAsanaUserID() {
-    const 
+    const
     ghUsername = core.getInput('github-username') || github.context.payload.pull_request.user.login,
     GITHUB_PAT = core.getInput('github-pat', {required: true}),
     githubClient = buildGithubClient(GITHUB_PAT),
     ORG = 'duckduckgo',
     REPO = 'internal-github-asana-utils';
-    
+
     console.log(`Looking up Asana user ID for ${ghUsername}`);
     try {
         await githubClient.request('GET /repos/{owner}/{repo}/contents/user_map.yml', {
@@ -411,6 +425,22 @@ async function findAsanaTaskId(){
         core.setOutput('asanaTaskId', foundTasks[0]);
     } else {
         core.setFailed(`Can't find an Asana task with the expected prefix`);
+    }
+}
+
+async function getTaskPermalink(){
+    const asanaTaskId = core.getInput('asana-task-id', {required: true});
+    const client = await buildAsanaClient();
+
+    console.log('Getting permalink for task', asanaTaskId);
+    try {
+        const task = await client.tasks.getTask(asanaTaskId);
+        if (task) {
+            core.setOutput('asanaTaskPermalink', task.permalink_url);
+            console.log(`Task permalink: ${ task.permalink_url}`);
+        }
+    } catch (error) {
+        core.setFailed(`Failed to retrieve task ${asanaTaskId}:`, JSON.stringify(error));
     }
 }
 
@@ -446,7 +476,7 @@ async function postCommentAsanaTask(){
             success = false;
         }
     }
-    
+
     if (success) {
         console.info(`Comments added to ${TASK_IDS.length} Asana task(s)`);
     } else {
@@ -462,13 +492,13 @@ async function sendMessage(client, channelId, message) {
         });
         console.log('Message sent:', response);
     } catch (error) {
-        core.setFailed(`Error sending message`);        
+        core.setFailed(`Error sending message`);
     }
 }
 
 async function sendMattermostMessage(){
     const
-        CHANNEL_NAME = core.getInput('mattermost-channel-name'),    
+        CHANNEL_NAME = core.getInput('mattermost-channel-name'),
         MESSAGE = core.getInput('mattermost-message')
         TEAM_ID = core.getInput('mattermost-team-id')
 
@@ -478,8 +508,8 @@ async function sendMattermostMessage(){
     if (channel) {
         console.log(`Channel "${channel.id}" found.`);
         await sendMessage(client, channel.id, MESSAGE);
-    } else {            
-        core.setFailed(`Channel "${CHANNEL_NAME}" not found.`); 
+    } else {
+        core.setFailed(`Channel "${CHANNEL_NAME}" not found.`);
     }
 }
 
@@ -546,6 +576,10 @@ async function action() {
         }
         case 'send-mattermost-message': {
             sendMattermostMessage();
+            break;
+        }
+        case 'get-asana-task-permalink': {
+            getTaskPermalink();
             break;
         }
         default:
