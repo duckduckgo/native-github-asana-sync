@@ -69,8 +69,8 @@ inputs:
   get-asana-task-permalink:
     description: 'Get permalink for a given Asana task ID'
     required: false
-  asana-task-custom-field-category:
-    description: 'Asana task custom field named Category'
+  asana-task-custom-fields:
+    description: 'Asana task custom field, encoded as a JSON string'
     required: false
 
 runs:

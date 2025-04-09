@@ -283,7 +283,7 @@ async function findTaskInSection(client, sectionId, name) {
     return existingTaskId
 }
 
-async function createTask(client, name, description, projectId, sectionId = '', tags = [], collaborators = [], assignee = '', category = '') {
+async function createTask(client, name, description, projectId, sectionId = '', tags = [], collaborators = [], assignee = '', customFields = '') {
     const taskOpts = {
         name: name,
         notes: description,
@@ -297,11 +297,10 @@ async function createTask(client, name, description, projectId, sectionId = '', 
         taskOpts.assignee = assignee;
     }
 
-    if (category === 'Pixels') {
-        taskOpts.custom_fields = {
-            '1206313756130490': '1206360570982977'
-        }
+    if (customFields != '') {
+        taskOpts.custom_fields = JSON.parse(customFields);
     }
+
     if (sectionId != '') {
         console.log('checking for duplicate task before creating a new one', name);
         let existingTaskId = await findTaskInSection(client, sectionId, name)
@@ -342,9 +341,9 @@ async function createAsanaTask(){
         tags = getArrayFromInput(core.getInput('asana-tags')),
         collaborators = getArrayFromInput(core.getInput('asana-collaborators'));
         assignee = core.getInput('asana-task-assignee');
-        category = core.getInput('asana-task-custom-field-category');
+        customFields = core.getInput('asana-task-custom-fields');
 
-    return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee, category);
+    return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee, customFields);
 }
 
 async function addTaskPRDescription(){
