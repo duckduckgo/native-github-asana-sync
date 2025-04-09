@@ -38,6 +38,7 @@ jobs:
       - name: Find Asana Task in PR description
         uses: ./actions
         id: find-asana-task-id
+        continue-on-error: true
         with:
           action: 'find-asana-task-id'
           trigger-phrase: ${{ inputs.trigger-phrase }}
@@ -45,6 +46,7 @@ jobs:
       - name: Get link to Asana Parent Task
         uses: ./actions
         id: get-parent-task-id
+        continue-on-error: true
         with:
           action: 'get-asana-task-parent-link'
           asana-pat: ${{ secrets.asana_pat }}
