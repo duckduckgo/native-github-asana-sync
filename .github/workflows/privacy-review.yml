@@ -43,7 +43,7 @@ jobs:
           action: 'find-asana-task-id'
           trigger-phrase: ${{ inputs.trigger-phrase }}
 
-      - name: Get link to Asana Task
+      - name: Get permalink to Asana Task
         uses: ./actions
         id: get-task-permalink
         continue-on-error: true
