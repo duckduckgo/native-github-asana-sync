@@ -397,22 +397,19 @@ async function getAsanaUserID() {
     GITHUB_PAT = core.getInput('github-pat', {required: true}),
     githubClient = buildGithubClient(GITHUB_PAT),
     ORG = 'duckduckgo',
-    REPO = 'internal-github-asana-utils',
-    BRANCH = 'la/fix-ladamski-mapping';
+    REPO = 'internal-github-asana-utils';
 
     console.log(`Looking up Asana user ID for ${ghUsername}`);
     try {
         await githubClient.request('GET /repos/{owner}/{repo}/contents/user_map.yml', {
             owner: ORG,
             repo: REPO,
-            ref: BRANCH,
             headers: {
                 'X-GitHub-Api-Version': '2022-11-28',
                 'Accept': 'application/vnd.github.raw+json'
             }
         }).then((response) => {
             const userMap = yaml.load(response.data);
-            console.warn('userMap', JSON.stringify(userMap));
             if (ghUsername in userMap) {
                 core.setOutput('asanaUserId', userMap[ghUsername]);
             } else {
@@ -434,28 +431,19 @@ async function findAsanaTaskId(){
     }
 }
 
-async function getTaskPermalink(asanaTaskId){
+async function getTaskPermalink(){
+    const asanaTaskId = core.getInput('asana-task-id', {required: true});
     const client = await buildAsanaClient();
 
-    console.log(`Getting project for ${asanaTaskId}`)
-    const task = await client.tasks.getTask(asanaTaskId);
-    if (task.projects.length > 0) {
-        const project = task.projects[0];
-        const projectId = project.gid;
-        const projectName = project.name;
-        const permalink = `https://app.asana.com/0/${projectId}/${asanaTaskId}/`;
-        console.log(`Project task ${projectName} permalink: ${permalink}`);
-        return permalink;
-    }
-
-    return null;
-}
-
-async function getParentPermalink(){
-    const foundTasks = findAsanaTasks()
-
-    if (foundTasks.length > 0) {
-        core.setOutput('asanaTaskParentLink', await getTaskPermalink(foundTasks[0]));
+    console.log('Getting permalink for task', asanaTaskId);
+    try {
+        const task = await client.tasks.getTask(asanaTaskId);
+        if (task) {
+            core.setOutput('asanaTaskPermalink', task.permalink_url);
+            console.log(`Task permalink: ${ task.permalink_url}`);
+        }
+    } catch (error) {
+        console.error(`Failed to retrieve task ${asanaTaskId}:`, JSON.stringify(error));
     }
 }
 
@@ -593,8 +581,8 @@ async function action() {
             sendMattermostMessage();
             break;
         }
-        case 'get-asana-task-parent-link': {
-            getParentPermalink();
+        case 'get-asana-task-permalink': {
+            getTaskPermalink();
             break;
         }
         default:

@@ -43,12 +43,12 @@ jobs:
           action: 'find-asana-task-id'
           trigger-phrase: ${{ inputs.trigger-phrase }}
 
-      - name: Get link to Asana Parent Task
+      - name: Get link to Asana Task
         uses: ./actions
-        id: get-parent-task-id
+        id: get-task-permalink
         continue-on-error: true
         with:
-          action: 'get-asana-task-parent-link'
+          action: 'get-asana-task-permalink'
           asana-pat: ${{ secrets.asana_pat }}
           asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
 
@@ -63,7 +63,7 @@ jobs:
           asana-task-name: 'Privacy Triage: ${{ inputs.team_name }} - ${{ github.event.pull_request.title }}'
           asana-task-description: |
             PR: ${{ github.event.pull_request.html_url }}/files?file-filters[]=.json&file-filters[]=.json5
-            Project Task: ${{ steps.get-parent-task-id.outputs.asanaTaskParentLink }}
+            Project Task: ${{ steps.get-task-permalink.outputs.asanaTaskPermalink }}
           asana-task-custom-field-category: 'Pixels'
           action: 'create-asana-task'
 

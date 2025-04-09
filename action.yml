@@ -66,8 +66,8 @@ inputs:
   asana-task-assignee:
     description: 'GID of user to assign the task to'
     required: false
-  get-asana-task-parent-link:
-    description: 'Get the parent task ID of a given Asana task ID'
+  get-asana-task-permalink:
+    description: 'Get permalink for a given Asana task ID'
     required: false
   asana-task-custom-field-category:
     description: 'Asana task custom field named Category'
