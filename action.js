@@ -436,7 +436,7 @@ async function getTaskPermalink(){
             console.log(`Task permalink: ${ task.permalink_url}`);
         }
     } catch (error) {
-        console.error(`Failed to retrieve task ${asanaTaskId}:`, JSON.stringify(error));
+        core.setFailed(`Failed to retrieve task ${asanaTaskId}:`, JSON.stringify(error));
     }
 }
 
