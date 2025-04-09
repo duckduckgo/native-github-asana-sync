@@ -297,9 +297,9 @@ async function createTask(client, name, description, projectId, sectionId = '', 
         taskOpts.assignee = assignee;
     }
 
-    if (category != '') {
+    if (category === 'Pixels') {
         taskOpts.custom_fields = {
-            '1209820479362827': '1209820479383203'
+            '1206313756130490': '1206360570982977'
         }
     }
     if (sectionId != '') {
@@ -433,8 +433,6 @@ async function getTaskPermalink(asanaTaskId){
 
     console.log(`Getting project for ${asanaTaskId}`)
     const task = await client.tasks.getTask(asanaTaskId);
-    console.log('Got task details', JSON.stringify(task));
-    // const taskId = task.data.gid;
     if (task.projects.length > 0) {
         const project = task.projects[0];
         const projectId = project.gid;
