@@ -428,14 +428,6 @@ async function findAsanaTaskId(){
     }
 }
 
-function findAsanaTaskParentId(){
-    const foundTasks = findAsanaTasks()
-    console.log('Got tasks', JSON.stringify(foundTasks))
-    if (foundTasks.length > 0) {
-        return foundTasks[0];
-    }
-}
-
 async function getTaskPermalink(asanaTaskId){
     const client = await buildAsanaClient();
 
@@ -456,10 +448,10 @@ async function getTaskPermalink(asanaTaskId){
 }
 
 async function getParentPermalink(){
-    const foundTask = findAsanaTaskParentId()
+    const foundTasks = findAsanaTasks()
 
-    if (foundTask) {
-        core.setOutput('asanaTaskParentLink', await getTaskPermalink(foundTask));
+    if (foundTasks.length > 0) {
+        core.setOutput('asanaTaskParentLink', await getTaskPermalink(foundTasks[0]));
     }
 }
 
