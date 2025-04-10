@@ -38,8 +38,8 @@ function findAsanaTasks(){
     const
         TRIGGER_PHRASE = core.getInput('trigger-phrase'),
         PULL_REQUEST = github.context.payload.pull_request,
-        REGEX_STRING = `${TRIGGER_PHRASE ? `${TRIGGER_PHRASE}` : ''}\s*https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
-        //REGEX_STRING = `${TRIGGER_PHRASE}\s*https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
+        REGEX_STRING = `${TRIGGER_PHRASE ? `${TRIGGER_PHRASE} ` : ''}https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
+        // REGEX_STRING = `${TRIGGER_PHRASE}\s*https:\\/\\/app.asana.com\\/(\\d+)\\/(?<project>\\d+)\\/(?<task>\\d+).*?`,
         SPECIFIED_PROJECT_ID = core.getInput('asana-project'),
         REGEX = new RegExp(REGEX_STRING, 'g');
 
