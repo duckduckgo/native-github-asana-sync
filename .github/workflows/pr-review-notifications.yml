@@ -5,6 +5,9 @@ on:
       trigger-phrase:
         required: true
         type: string
+      ref:
+        required: false
+        type: string
     secrets:
       asana_pat:
         required: true
@@ -17,6 +20,7 @@ jobs:
       - name: Checkout actions repo # required so we can reference the actions locally
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.ref }}
           path: actions
           repository: duckduckgo/native-github-asana-sync
 
