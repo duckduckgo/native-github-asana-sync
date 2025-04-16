@@ -558,12 +558,54 @@ jobs:
                   asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
 ```
 
-## Building
+## Contributing
 
-Run before pushing changes: `npm run build`
+### Building
 
-More info: https://docs.github.com/en/actions/sharing-automations/creating-actions/creating-a-javascript-action#commit-tag-and-push-your-action-to-github
+Before pushing changes, ensure that you have the correct Node.js version and that dependencies are installed. Then, run the build command:
 
-## Testing
+```bash
+nvm use # or nvm install
+npm ci
+npm run build
+```
 
-To run tests: `npm test`
+This uses `@vercel/ncc` to compile the Node.js code into a single file along with all dependencies.
+
+After building, commit the changes including the `dist` directory to ensure the action is ready to use.
+
+More info: [Creating a JavaScript Action](https://docs.github.com/en/actions/creating-actions/creating-a-javascript-action#commit-tag-and-push-your-action-to-github)
+
+### Testing
+
+There are several test commands available:
+
+#### Run all tests
+
+```bash
+npm test
+```
+
+#### Run tests with coverage report
+
+```bash
+npm run test:coverage
+```
+
+#### Run tests in watch mode
+
+```bash
+npm run test:watch
+```
+
+#### Check for lint and code formatting errors
+
+```bash
+npm run lint
+```
+
+#### Automatically fix lint and code formatting errors
+
+```bash
+npm run lint:fix
+```
