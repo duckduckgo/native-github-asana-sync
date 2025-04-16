@@ -16,3 +16,6 @@ jobs:
             - run: npm ci
             - run: npm run lint
             - run: npm test
+            - run: npm run build
+            - name: Check for uncommitted build file
+              run: git diff --exit-code
