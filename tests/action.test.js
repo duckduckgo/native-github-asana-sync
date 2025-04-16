@@ -251,9 +251,10 @@ describe('GitHub Asana Sync Action', () => {
                 'asana-project': '3333', // Project ID from the second 'Closes' link
             });
             github.context.payload.issue = undefined; // Ensure PR context is used
-            (github.context.payload.pull_request.body =
-                'This PR fixes bugs.\n\nCloses https://app.asana.com/0/1111/2222\nCloses https://app.asana.com/0/project/3333/task/4444/f'),
-                await action();
+            github.context.payload.pull_request.body =
+                'This PR fixes bugs.\n\nCloses https://app.asana.com/0/1111/2222\nCloses https://app.asana.com/0/project/3333/task/4444/f';
+
+            await action();
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(1);
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
@@ -505,7 +506,7 @@ describe('GitHub Asana Sync Action', () => {
             expect(Octokit).toHaveBeenCalledWith({ auth: 'mock-github-pat' });
             expect(mockOctokitRequest).toHaveBeenCalledWith(
                 'GET /repos/{owner}/{repo}/releases/latest',
-                expect.objectContaining({ owner: org, repo: repo }),
+                expect.objectContaining({ owner: org, repo }),
             );
             expect(core.setOutput).toHaveBeenCalledWith('version', mockGithubRelease.data.tag_name);
             expect(core.setFailed).not.toHaveBeenCalled();
@@ -528,7 +529,7 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockOctokitRequest).toHaveBeenCalledWith(
                 'GET /repos/{owner}/{repo}/releases/latest',
-                expect.objectContaining({ owner: org, repo: repo }),
+                expect.objectContaining({ owner: org, repo }),
             );
             expect(core.setOutput).not.toHaveBeenCalled();
             expect(core.setFailed).toHaveBeenCalledWith(`can't find latest version for ${repo}`);
@@ -687,7 +688,7 @@ describe('GitHub Asana Sync Action', () => {
                 'GET /repos/{owner}/{repo}/pulls/{pull_number}',
                 expect.objectContaining({
                     owner: org,
-                    repo: repo,
+                    repo,
                     pull_number: prNumber,
                 }),
             );
@@ -701,7 +702,7 @@ describe('GitHub Asana Sync Action', () => {
                 'PATCH /repos/{owner}/{repo}/pulls/{pull_number}',
                 expect.objectContaining({
                     owner: org,
-                    repo: repo,
+                    repo,
                     pull_number: prNumber,
                     body: expectedBody,
                 }),
@@ -976,7 +977,7 @@ describe('GitHub Asana Sync Action', () => {
             expect(mockMattermostClientInstance.getChannelByName).toHaveBeenCalledWith(mockMattermostTeamId, channelName);
             expect(mockMattermostClientInstance.createPost).toHaveBeenCalledWith({
                 channel_id: mockMattermostChannel.id,
-                message: message,
+                message,
             });
             expect(core.setFailed).not.toHaveBeenCalled();
         });
