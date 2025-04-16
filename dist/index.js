@@ -474,7 +474,7 @@ async function postCommentAsanaTask() {
 
     const TASK_IDS = getArrayFromInput(core.getInput('asana-task-id'));
     const TASK_COMMENT = core.getInput('asana-task-comment');
-    const IS_PINNED = core.getInput('asana-task-comment-pinned');
+    const IS_PINNED = core.getInput('asana-task-comment-pinned') === 'true';
 
     if (TASK_IDS.length === 0) {
         core.setFailed(`No valid task IDs provided`);
@@ -532,67 +532,67 @@ async function action() {
 
     switch (ACTION) {
         case 'create-asana-issue-task': {
-            createIssueTask();
+            await createIssueTask();
             break;
         }
         case 'notify-pr-approved': {
-            notifyPRApproved();
+            await notifyPRApproved();
             break;
         }
         case 'notify-pr-merged': {
-            completePRTask();
+            await completePRTask();
             break;
         }
         case 'check-pr-membership': {
-            checkPRMembership();
+            await checkPRMembership();
             break;
         }
         case 'add-asana-comment': {
-            addCommentToPRTask();
+            await addCommentToPRTask();
             break;
         }
         case 'add-task-asana-project': {
-            addTaskToAsanaProject();
+            await addTaskToAsanaProject();
             break;
         }
         case 'create-asana-pr-task': {
-            createPullRequestTask();
+            await createPullRequestTask();
             break;
         }
         case 'get-latest-repo-release': {
-            getLatestRepositoryRelease();
+            await getLatestRepositoryRelease();
             break;
         }
         case 'create-asana-task': {
-            createAsanaTask();
+            await createAsanaTask();
             break;
         }
         case 'add-task-pr-description': {
-            addTaskPRDescription();
+            await addTaskPRDescription();
             break;
         }
         case 'get-asana-user-id': {
-            getAsanaUserID();
+            await getAsanaUserID();
             break;
         }
         case 'find-asana-task-id': {
-            findAsanaTaskId();
+            await findAsanaTaskId();
             break;
         }
         case 'find-asana-task-ids': {
-            findAsanaTaskIds();
+            await findAsanaTaskIds();
             break;
         }
         case 'post-comment-asana-task': {
-            postCommentAsanaTask();
+            await postCommentAsanaTask();
             break;
         }
         case 'send-mattermost-message': {
-            sendMattermostMessage();
+            await sendMattermostMessage();
             break;
         }
         case 'get-asana-task-permalink': {
-            getTaskPermalink();
+            await getTaskPermalink();
             break;
         }
         default:

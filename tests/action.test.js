@@ -8,11 +8,6 @@ const { Client4 } = require('@mattermost/client');
 // Import the function to test
 const { action } = require('../action');
 
-// --- Helpers ---
-function waitFor(milliseconds) {
-    return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
 // --- Mock Data ---
 
 const mockGithubContextPayload = {
@@ -306,8 +301,7 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
-        // @fixme Empty trigger-phrase is not working
-        it.skip('should mark multiple Asana tasks as complete', async () => {
+        it('should mark multiple Asana tasks as complete', async () => {
             mockGetInput({
                 action: 'notify-pr-merged',
                 'asana-pat': 'mock-asana-pat',
@@ -333,8 +327,7 @@ describe('GitHub Asana Sync Action', () => {
         });
     });
 
-    // @fixme checkPRMembership() is broken: author is undefined
-    describe.skip('action: check-pr-membership', () => {
+    describe('action: check-pr-membership', () => {
         it('should output external=false for internal user', async () => {
             mockGetInput({ action: 'check-pr-membership' });
             // Use default payload where head.user.login matches base.repo.owner.login implies internal (adjust if logic differs)
@@ -395,9 +388,6 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // @fixme buggy async implementation
-            await waitFor(100);
-
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledTimes(2);
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith('task-abc', {
                 project: mockAsanaProject,
@@ -421,9 +411,6 @@ describe('GitHub Asana Sync Action', () => {
             });
 
             await action();
-
-            // @fixme buggy async implementation
-            await waitFor(100);
 
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledTimes(2);
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith('task-abc', { project: mockAsanaProject });
@@ -524,9 +511,6 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // @fixme buggy async implementation
-            await waitFor(100);
-
             expect(mockOctokitRequest).toHaveBeenCalledWith(
                 'GET /repos/{owner}/{repo}/releases/latest',
                 expect.objectContaining({ owner: org, repo }),
@@ -550,9 +534,6 @@ describe('GitHub Asana Sync Action', () => {
             });
 
             await action();
-
-            // @fixme buggy async implementation
-            await waitFor(100);
 
             expect(mockAsanaClient.tasks.getTasksForSection).not.toHaveBeenCalled(); // No section provided
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
@@ -585,9 +566,6 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // @fixme buggy async implementation
-            await waitFor(100);
-
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
                     name: taskName,
@@ -618,9 +596,6 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // @fixme buggy async implementation
-            await waitFor(100);
-
             expect(mockAsanaClient.tasks.getTasksForSection).toHaveBeenCalledWith(mockAsanaSection);
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -649,9 +624,6 @@ describe('GitHub Asana Sync Action', () => {
             });
 
             await action();
-
-            // @fixme buggy async implementation
-            await waitFor(100);
 
             expect(mockAsanaClient.tasks.getTasksForSection).toHaveBeenCalledWith(mockAsanaSection);
             expect(mockAsanaClient.tasks.createTask).not.toHaveBeenCalled();
@@ -779,9 +751,6 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // @fixme buggy async implementation
-            await waitFor(100);
-
             expect(mockOctokitRequest).toHaveBeenCalled();
             expect(yaml.load).not.toHaveBeenCalled();
             expect(core.setOutput).not.toHaveBeenCalled();
@@ -886,14 +855,10 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // @fixme buggy async implementation
-            await waitFor(100);
-
-            // @fixme createStoryForTask() should probably be called with is_pinned set to boolean false instead of string "false"
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(3);
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task1', { text: comment, is_pinned: 'false' });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task2', { text: comment, is_pinned: 'false' });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task3', { text: comment, is_pinned: 'false' });
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task1', { text: comment, is_pinned: false });
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task2', { text: comment, is_pinned: false });
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task3', { text: comment, is_pinned: false });
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -908,14 +873,10 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // @fixme buggy async implementation
-            await waitFor(100);
-
-            // @fixme createStoryForTask() should probably be called with is_pinned set to boolean true instead of string "true"
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(3);
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task1', { text: comment, is_pinned: 'true' });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task2', { text: comment, is_pinned: 'true' });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task3', { text: comment, is_pinned: 'true' });
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task1', { text: comment, is_pinned: true });
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task2', { text: comment, is_pinned: true });
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task3', { text: comment, is_pinned: true });
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -947,9 +908,6 @@ describe('GitHub Asana Sync Action', () => {
                 .mockResolvedValueOnce(mockAsanaStory); // Success
 
             await action();
-
-            // @fixme buggy async implementation
-            await waitFor(100);
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(3);
             expect(core.setFailed).toHaveBeenCalledWith('Failed to post comments to one or more Asana tasks');
@@ -1012,9 +970,6 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // @fixme buggy async implementation
-            await waitFor(100);
-
             expect(mockMattermostClientInstance.getChannelByName).toHaveBeenCalled();
             expect(mockMattermostClientInstance.createPost).toHaveBeenCalled();
             expect(core.setFailed).toHaveBeenCalledWith(`Error sending message`);
@@ -1039,9 +994,6 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // @fixme buggy async implementation
-            await waitFor(100);
-
             expect(mockAsanaClient.tasks.getTask).toHaveBeenCalledWith(taskId);
             expect(core.setOutput).toHaveBeenCalledWith('asanaTaskPermalink', `https://app.asana.com/0/${mockAsanaProject}/${taskId}/f`);
             expect(core.setFailed).not.toHaveBeenCalled();
@@ -1057,9 +1009,6 @@ describe('GitHub Asana Sync Action', () => {
             mockAsanaClient.tasks.getTask.mockRejectedValue(error);
 
             await action();
-
-            // @fixme buggy async implementation
-            await waitFor(100);
 
             expect(mockAsanaClient.tasks.getTask).toHaveBeenCalledWith(taskId);
             expect(core.setOutput).not.toHaveBeenCalled();
