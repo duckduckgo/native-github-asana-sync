@@ -485,9 +485,7 @@ jobs:
 ```
 
 ## Building
-Run once: `npm i -g @vercel/ncc`
-
-Run before pushing changes: `ncc build index.js`
+Run before pushing changes: `npm run build`
 
 More info: https://docs.github.com/en/actions/sharing-automations/creating-actions/creating-a-javascript-action#commit-tag-and-push-your-action-to-github
 
