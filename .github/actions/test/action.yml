@@ -1,0 +1,28 @@
+name: 'Hello World'
+description: 'Greet someone'
+inputs:
+  asana_pat:
+    required: true
+outputs:
+  res:
+    value: ${{ steps.setter.outputs.res }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set Output
+      id: setter
+      run: echo "res=xx${{ github.ref }}xx" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Get permalink to Asana Task
+      uses: ./custom_actions
+      id: get-task-permalink
+      with:
+        action: 'get-asana-task-permalink'
+        asana-pat: ${{ inputs.asana_pat }}
+        asana-task-id: "1209829216852627"
+
+    - name: Print Link
+      run: echo "Asana Task Link ${{ steps.get-task-permalink.outputs.asanaTaskPermalink }}"
+      shell: bash
