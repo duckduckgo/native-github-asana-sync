@@ -1,0 +1,25 @@
+name: PR Sync with Asana
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, closed]
+
+jobs:
+  sync-with-asana:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Sync PR with Asana
+        uses: ./.github/actions/pr-sync
+        id: sync
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_PAT_TEST }}
+          ASANA_WORKSPACE_ID: ${{ vars.ANDROID_CODE_REVIEWS_TEST_WORKSPACE }}
+          ASANA_PROJECT_ID: ${{ vars.ANDROID_CODE_REVIEWS_TEST_PROJECT_ID }}
+      
+      - name: Print sync result
+        run: |
+          echo "Task URL: ${{ steps.sync.outputs.task_url }}"
+          echo "Result: ${{ steps.sync.outputs.result }}" 
