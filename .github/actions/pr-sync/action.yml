@@ -1,33 +1,37 @@
-name: "Asana Sync"
-description: "Sync Github PRs to Asana Tasks"
-author: "David Gonzalez based on Sam Macbeth's work and Quang Nguyen's work"
+name: 'Asana PR Sync'
+description: 'Sync GitHub PRs with Asana tasks (Kotlin version)'
 inputs:
   GITHUB_TOKEN:
+    description: 'GitHub token'
     required: true
-    description: "Access token for GitHub API calls"
   ASANA_ACCESS_TOKEN:
+    description: 'Asana access token'
     required: true
-    description: "Access token for Asana API calls"
   ASANA_WORKSPACE_ID:
+    description: 'Asana workspace ID'
     required: true
-    description: "ID of your Asana workspace"
   ASANA_PROJECT_ID:
+    description: 'Asana project ID'
     required: true
-    description: "Project ID where tasks should be created in Asana"
-  ASANA_IN_PROGRESS_SECTION_ID:
-    required: false
-    description: "If set: move the task to this section once review is in progress"
-  USER_MAP:
-    required: false
-    description: "JSON string mapping Github user IDs to Asana user IDs"
-  RANDOMIZED_REVIEWERS:
-    required: false
-    description: "Comma separated list of GitHub users who can be assigned as randomized reviewers"
-outputs:
-  task_url:
-    description: URL of created/updated PR review task
-  result:
-    description: "Will be one of: created, updated"
+
 runs:
-  using: "node20"
-  main: "dist/index.js"
+  using: 'composite'
+  steps:
+    - uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - uses: gradle/gradle-build-action@v2
+      with:
+        gradle-version: 8.5
+    
+    - shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        ./gradlew run
+      env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+        ASANA_ACCESS_TOKEN: ${{ inputs.ASANA_ACCESS_TOKEN }}
+        ASANA_WORKSPACE_ID: ${{ inputs.ASANA_WORKSPACE_ID }}
+        ASANA_PROJECT_ID: ${{ inputs.ASANA_PROJECT_ID }}
