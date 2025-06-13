@@ -23,7 +23,7 @@
         "@actions/github": "^6.0.0",
         "@mattermost/client": "^10.6.0",
         "@octokit/core": "^5.2.1",
-        "asana": "^1.0.2",
+        "asana": "^3.0.16",
         "js-yaml": "^4.1.0"
     },
     "devDependencies": {
