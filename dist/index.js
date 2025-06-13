@@ -470,10 +470,10 @@ async function getTaskPermalink() {
 
     console.log('Getting permalink for task', asanaTaskId);
     try {
-        const task = await client.tasks.getTask(asanaTaskId);
-        if (task) {
-            core.setOutput('asanaTaskPermalink', task.permalink_url);
-            console.log(`Task permalink: ${task.permalink_url}`);
+        const response = await client.tasks.getTask(asanaTaskId);
+        if (response && response.data) {
+            core.setOutput('asanaTaskPermalink', response.data.permalink_url);
+            console.log(`Task permalink: ${response.data.permalink_url}`);
         }
     } catch (error) {
         core.setFailed(`Failed to retrieve task ${asanaTaskId}:`, JSON.stringify(error));

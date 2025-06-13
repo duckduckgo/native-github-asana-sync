@@ -1105,11 +1105,13 @@ describe('GitHub Asana Sync Action', () => {
                 'asana-pat': 'mock-asana-pat',
                 'asana-task-id': taskId,
             });
-            // Ensure getTask returns the mock task with a permalink
+            // Ensure getTask returns the mock task with a permalink in v3 API format
             mockAsanaClient.tasks.getTask.mockResolvedValue({
-                ...mockAsanaTask,
-                gid: taskId, // Match requested ID
-                permalink_url: `https://app.asana.com/0/${mockAsanaProject}/${taskId}/f`,
+                data: {
+                    ...mockAsanaTask,
+                    gid: taskId, // Match requested ID
+                    permalink_url: `https://app.asana.com/0/${mockAsanaProject}/${taskId}/f`,
+                },
             });
 
             await action();
