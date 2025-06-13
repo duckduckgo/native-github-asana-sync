@@ -83,10 +83,14 @@ function findAsanaTasks() {
 
 async function createStory(client, taskId, text, isPinned) {
     try {
-        return await client.stories.createStoryForTask(taskId, {
-            text,
-            is_pinned: isPinned,
-        });
+        const body = {
+            data: {
+                text,
+                is_pinned: isPinned,
+            },
+        };
+        const opts = {};
+        return await client.stories.createStoryForTask(body, taskId, opts);
     } catch (error) {
         console.error('rejecting promise', error);
     }

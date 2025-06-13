@@ -221,11 +221,14 @@ describe('GitHub Asana Sync Action', () => {
             await Promise.resolve(); // Allow microtasks to run
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                mockAsanaCreatedTask.data.gid,
                 expect.objectContaining({
-                    text: `Link to Issue: ${mockGithubContextPayload.issue.html_url}`,
-                    is_pinned: true,
+                    data: expect.objectContaining({
+                        text: `Link to Issue: ${mockGithubContextPayload.issue.html_url}`,
+                        is_pinned: true,
+                    }),
                 }),
+                mockAsanaCreatedTask.data.gid,
+                {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -245,11 +248,14 @@ describe('GitHub Asana Sync Action', () => {
             expect(asana.StoriesApi).toHaveBeenCalled();
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(1); // Only 'Closes' matches trigger
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                '2222', // Task ID from the 'Closes' link
                 expect.objectContaining({
-                    text: `PR: ${mockGithubContextPayload.pull_request.html_url} has been approved`,
-                    is_pinned: false,
+                    data: expect.objectContaining({
+                        text: `PR: ${mockGithubContextPayload.pull_request.html_url} has been approved`,
+                        is_pinned: false,
+                    }),
                 }),
+                '2222', // Task ID from the 'Closes' link
+                {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -269,10 +275,14 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(1);
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                '4444', // Task ID from the second 'Closes' link
                 expect.objectContaining({
-                    text: `PR: ${mockGithubContextPayload.pull_request.html_url} has been approved`,
+                    data: expect.objectContaining({
+                        text: `PR: ${mockGithubContextPayload.pull_request.html_url} has been approved`,
+                        is_pinned: false,
+                    }),
                 }),
+                '4444', // Task ID from the second 'Closes' link
+                {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -380,11 +390,14 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(1);
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                '3333', // From 'Fixes' link
                 expect.objectContaining({
-                    text: `PR: ${mockGithubContextPayload.pull_request.html_url}`,
-                    is_pinned: true,
+                    data: expect.objectContaining({
+                        text: `PR: ${mockGithubContextPayload.pull_request.html_url}`,
+                        is_pinned: true,
+                    }),
                 }),
+                '3333', // From 'Fixes' link
+                {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -484,11 +497,14 @@ describe('GitHub Asana Sync Action', () => {
             await Promise.resolve();
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                mockAsanaCreatedTask.data.gid,
                 expect.objectContaining({
-                    text: `Link to Pull Request: ${mockGithubContextPayload.pull_request.html_url}`,
-                    is_pinned: true,
+                    data: expect.objectContaining({
+                        text: `Link to Pull Request: ${mockGithubContextPayload.pull_request.html_url}`,
+                        is_pinned: true,
+                    }),
                 }),
+                mockAsanaCreatedTask.data.gid,
+                {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -884,9 +900,21 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(3);
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task1', { text: comment, is_pinned: false });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task2', { text: comment, is_pinned: false });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task3', { text: comment, is_pinned: false });
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: false } },
+                'task1',
+                {},
+            );
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: false } },
+                'task2',
+                {},
+            );
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: false } },
+                'task3',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -902,9 +930,21 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(3);
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task1', { text: comment, is_pinned: true });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task2', { text: comment, is_pinned: true });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task3', { text: comment, is_pinned: true });
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: true } },
+                'task1',
+                {},
+            );
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: true } },
+                'task2',
+                {},
+            );
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: true } },
+                'task3',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
