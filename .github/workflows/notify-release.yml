@@ -1,0 +1,82 @@
+name: Notify Teams of New Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify-teams:
+    runs-on: ubuntu-latest
+    name: Create Asana Tasks for Release Notification
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Get release information
+        id: release-info
+        run: |
+          echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          echo "release_url=${{ github.event.release.html_url }}" >> $GITHUB_OUTPUT
+          echo "release_name=${{ github.event.release.name }}" >> $GITHUB_OUTPUT
+          
+      - name: Create task description
+        id: task-description
+        run: |
+          DESCRIPTION="🚀 **New Asana <> Github Integration Release Available**
+
+          **Version:** ${{ steps.release-info.outputs.version }}
+          **Release:** ${{ steps.release-info.outputs.release_name }}
+          
+          **What's New:**
+          ${{ github.event.release.body }}
+          
+          **Action Required:**
+          - Review the release notes above
+          - Update your workflows to use the new version: \`${{ github.repository }}@${{ steps.release-info.outputs.version }}\`
+          - Test the updated workflows in a development environment first
+          
+          **Links:**
+          - 📋 [Release Notes](${{ steps.release-info.outputs.release_url }})
+          - 📚 [Documentation](https://github.com/${{ github.repository }}/blob/main/README.md)
+          - 🔧 [Migration Guide](https://github.com/${{ github.repository }}/blob/main/MIGRATION_SUMMARY.md)
+          
+          **Support:**
+          If you encounter any issues, please create an issue in the [GitHub repository](https://github.com/${{ github.repository }}/issues)."
+          
+          # Save multiline description to output
+          echo "description<<EOF" >> $GITHUB_OUTPUT
+          echo "$DESCRIPTION" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # Android Team
+      - name: Create Asana task for Android team
+        uses: ./
+        with:
+          asana-pat: ${{ secrets.ASANA_PAT_TEST }}
+          asana-project: '1209454604567606'
+          asana-section: '1209455675160384'
+          asana-task-name: "🤖 Asana <> Github Integration Update: ${{ steps.release-info.outputs.version }}"
+          asana-task-description: ${{ steps.task-description.outputs.description }}
+          action: 'create-asana-task'
+        continue-on-error: true
+
+      # Add more teams as needed...
+      # - name: Create Asana task for [TEAM_NAME] team
+      #   uses: ./
+      #   with:
+      #     asana-pat: ${{ secrets.ASANA_PAT }}
+      #     asana-project: ${{ vars.[TEAM]_ASANA_PROJECT_ID }}
+      #     asana-section: ${{ vars.[TEAM]_ASANA_SECTION_ID }}
+      #     asana-task-name: "📢 Asana <> Github Integration Update: ${{ steps.release-info.outputs.version }}"
+      #     asana-task-description: ${{ steps.task-description.outputs.description }}
+      #     asana-tags: ${{ vars.GITHUB_ACTION_UPDATE_TAG_ID }}
+      #     asana-collaborators: ${{ vars.[TEAM]_TEAM_ASANA_IDS }}
+      #     action: 'create-asana-task'
+      #   continue-on-error: true
+
+      - name: Summary
+        run: |
+          echo "✅ Release notification tasks created for version ${{ steps.release-info.outputs.version }}"
+          echo "📋 Teams notified via Asana tasks in their respective projects"
+          echo "🔗 Release URL: ${{ steps.release-info.outputs.release_url }}" 
