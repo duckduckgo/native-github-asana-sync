@@ -99,7 +99,7 @@ const mockAsanaClient = {
     tasks: {
         createTask: jest.fn().mockResolvedValue(mockAsanaCreatedTask),
         addProjectForTask: jest.fn().mockResolvedValue({}),
-        update: jest.fn().mockResolvedValue({}),
+        updateTask: jest.fn().mockResolvedValue({}),
         getTasksForSection: jest.fn().mockResolvedValue({ data: [] }), // Default: no existing tasks
         getTask: jest.fn().mockResolvedValue(mockAsanaTask),
     },
@@ -301,8 +301,8 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(asana.TasksApi).toHaveBeenCalled();
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
                 {
                     data: {
                         completed: true,
@@ -326,8 +326,8 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(asana.TasksApi).toHaveBeenCalled();
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
                 {
                     data: {
                         completed: false,
@@ -351,8 +351,8 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(asana.TasksApi).toHaveBeenCalled();
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(3);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(3);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
                 {
                     data: {
                         completed: true,
@@ -361,7 +361,7 @@ describe('GitHub Asana Sync Action', () => {
                 '2222',
                 {},
             );
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
                 {
                     data: {
                         completed: true,
@@ -370,7 +370,7 @@ describe('GitHub Asana Sync Action', () => {
                 '3333',
                 {},
             );
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
                 {
                     data: {
                         completed: true,
@@ -1149,8 +1149,8 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(asana.TasksApi).toHaveBeenCalled();
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
                 {
                     data: {
                         completed: true,
@@ -1173,8 +1173,8 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(asana.TasksApi).toHaveBeenCalled();
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
                 {
                     data: {
                         completed: false,
@@ -1197,8 +1197,8 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(asana.TasksApi).toHaveBeenCalled();
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
                 {
                     data: {
                         completed: false,

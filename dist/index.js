@@ -534,7 +534,7 @@ async function completeAsanaTask(taskId, completed) {
         },
     };
     const opts = {};
-    await client.tasks.update(body, taskId, opts);
+    await client.tasks.updateTask(body, taskId, opts);
 }
 
 async function sendMessage(client, channelId, message) {
