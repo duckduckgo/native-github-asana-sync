@@ -94,7 +94,17 @@ async function createStory(client, taskId, text, isPinned) {
 
 async function createTaskWithComment(client, name, description, comment, projectId) {
     try {
-        client.tasks.createTask({ name, notes: description, projects: [projectId], pretty: true }).then((result) => {
+        const body = {
+            data: {
+                name,
+                notes: description,
+                is_rendered_as_separator: false,
+                projects: [projectId],
+            },
+        };
+        const opts = {};
+
+        client.tasks.createTask(body, opts).then((result) => {
             console.log('task created', result.gid);
             return createStory(client, result.gid, comment, true);
         });
@@ -310,7 +320,6 @@ async function createTask(
         projects: [projectId],
         tags,
         followers: collaborators,
-        pretty: true,
     };
 
     if (assignee) {
@@ -338,10 +347,13 @@ async function createTask(
         taskOpts.memberships = [{ project: projectId, section: sectionId }];
     }
 
+    const body = { data: taskOpts };
+    const opts = {};
+
     console.log(`creating new task with options:='${JSON.stringify(taskOpts)}'`);
     let createdTaskId = '0';
     try {
-        await client.tasks.createTask(taskOpts).then((result) => {
+        await client.tasks.createTask(body, opts).then((result) => {
             createdTaskId = result.gid;
             console.log('task created', createdTaskId);
             core.setOutput('taskId', createdTaskId);

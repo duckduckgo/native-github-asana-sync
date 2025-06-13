@@ -206,10 +206,13 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: `Github Issue: ${mockGithubContextPayload.issue.title}`,
-                    notes: `Description: ${mockGithubContextPayload.issue.body}`,
-                    projects: [mockAsanaProject],
+                    data: expect.objectContaining({
+                        name: `Github Issue: ${mockGithubContextPayload.issue.title}`,
+                        notes: `Description: ${mockGithubContextPayload.issue.body}`,
+                        projects: [mockAsanaProject],
+                    }),
                 }),
+                {},
             );
 
             // Wait for the promise chain in createTaskWithComment
@@ -466,10 +469,13 @@ describe('GitHub Asana Sync Action', () => {
             expect(asana.TasksApi).toHaveBeenCalled();
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: `Community Pull Request: ${mockGithubContextPayload.pull_request.title}`,
-                    notes: `Description: ${mockGithubContextPayload.pull_request.body}`,
-                    projects: [mockAsanaProject],
+                    data: expect.objectContaining({
+                        name: `Community Pull Request: ${mockGithubContextPayload.pull_request.title}`,
+                        notes: `Description: ${mockGithubContextPayload.pull_request.body}`,
+                        projects: [mockAsanaProject],
+                    }),
                 }),
+                {},
             );
 
             // Wait for promise chain
@@ -549,12 +555,15 @@ describe('GitHub Asana Sync Action', () => {
             expect(mockAsanaClient.tasks.getTasksForSection).not.toHaveBeenCalled(); // No section provided
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: taskName,
-                    notes: taskDescription,
-                    projects: [mockAsanaProject],
-                    tags: [],
-                    followers: [],
+                    data: expect.objectContaining({
+                        name: taskName,
+                        notes: taskDescription,
+                        projects: [mockAsanaProject],
+                        tags: [],
+                        followers: [],
+                    }),
                 }),
+                {},
             );
             expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.gid);
             expect(core.setOutput).toHaveBeenCalledWith('duplicate', false);
@@ -579,14 +588,17 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: taskName,
-                    notes: taskDescription,
-                    projects: [mockAsanaProject],
-                    tags: [mockAsanaTagId, 'tag-xyz'],
-                    followers: [mockAsanaCollaboratorId, 'collab-abc'],
-                    assignee: mockAsanaUserId,
-                    custom_fields: { 12345: 'field_value' },
+                    data: expect.objectContaining({
+                        name: taskName,
+                        notes: taskDescription,
+                        projects: [mockAsanaProject],
+                        tags: [mockAsanaTagId, 'tag-xyz'],
+                        followers: [mockAsanaCollaboratorId, 'collab-abc'],
+                        assignee: mockAsanaUserId,
+                        custom_fields: { 12345: 'field_value' },
+                    }),
                 }),
+                {},
             );
             expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.gid);
             expect(core.setOutput).toHaveBeenCalledWith('duplicate', false);
@@ -610,10 +622,13 @@ describe('GitHub Asana Sync Action', () => {
             expect(mockAsanaClient.tasks.getTasksForSection).toHaveBeenCalledWith(mockAsanaSection);
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: taskName,
-                    projects: [mockAsanaProject], // Projects still needed
-                    memberships: [{ project: mockAsanaProject, section: mockAsanaSection }],
+                    data: expect.objectContaining({
+                        name: taskName,
+                        projects: [mockAsanaProject], // Projects still needed
+                        memberships: [{ project: mockAsanaProject, section: mockAsanaSection }],
+                    }),
                 }),
+                {},
             );
             expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.gid);
             expect(core.setOutput).toHaveBeenCalledWith('duplicate', false);
