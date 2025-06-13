@@ -348,7 +348,7 @@ async function createTask(
             core.setOutput('duplicate', false);
         });
     } catch (error) {
-        console.error('rejecting promise', JSON.stringify(error));
+        console.error(error.response.body);
     }
     return createdTaskId;
 }
