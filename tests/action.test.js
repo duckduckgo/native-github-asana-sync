@@ -418,14 +418,24 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledTimes(2);
-            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith('task-abc', {
-                project: mockAsanaProject,
-                insert_after: null,
-            });
-            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith('task-def', {
-                project: mockAsanaProject,
-                insert_after: null,
-            });
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        project: mockAsanaProject,
+                    },
+                },
+                'task-abc',
+                {},
+            );
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        project: mockAsanaProject,
+                    },
+                },
+                'task-def',
+                {},
+            );
             expect(mockAsanaClient.sections.addTaskForSection).not.toHaveBeenCalled();
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -442,16 +452,28 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledTimes(2);
-            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith('task-abc', { project: mockAsanaProject });
-            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith('task-def', { project: mockAsanaProject });
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        project: mockAsanaProject,
+                        section: mockAsanaSection,
+                    },
+                },
+                'task-abc',
+                {},
+            );
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        project: mockAsanaProject,
+                        section: mockAsanaSection,
+                    },
+                },
+                'task-def',
+                {},
+            );
 
-            // Wait for promise chain
-            await Promise.resolve();
-            await Promise.resolve(); // Might need more if timing is tight
-
-            expect(mockAsanaClient.sections.addTaskForSection).toHaveBeenCalledTimes(2);
-            expect(mockAsanaClient.sections.addTaskForSection).toHaveBeenCalledWith(mockAsanaSection, { task: 'task-abc' });
-            expect(mockAsanaClient.sections.addTaskForSection).toHaveBeenCalledWith(mockAsanaSection, { task: 'task-def' });
+            // No need for additional section calls since section is included in addProjectForTask
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 

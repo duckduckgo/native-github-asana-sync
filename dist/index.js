@@ -174,25 +174,27 @@ async function addTaskToProject(client, taskId, projectId, sectionId) {
     if (!sectionId) {
         console.info('adding asana task to project', projectId);
         try {
-            return await client.tasks.addProjectForTask(taskId, {
-                project: projectId,
-                insert_after: null,
-            });
+            const body = {
+                data: {
+                    project: projectId,
+                },
+            };
+            const opts = {};
+            return await client.tasks.addProjectForTask(body, taskId, opts);
         } catch (error) {
             console.error('rejecting promise', error);
         }
     } else {
         console.info(`adding asana task to top of section ${sectionId} in project ${projectId}`);
         try {
-            return await client.tasks
-                .addProjectForTask(taskId, {
+            const body = {
+                data: {
                     project: projectId,
-                })
-                .then((result) => {
-                    client.sections.addTaskForSection(sectionId, { task: taskId }).then((result) => {
-                        console.log(result);
-                    });
-                });
+                    section: sectionId,
+                },
+            };
+            const opts = {};
+            return await client.tasks.addProjectForTask(body, taskId, opts);
         } catch (error) {
             console.error('rejecting promise', error);
         }
