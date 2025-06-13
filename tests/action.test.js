@@ -34,9 +34,11 @@ const mockAsanaTask = {
 };
 
 const mockAsanaCreatedTask = {
-    gid: '5555',
-    name: 'Newly Created Task',
-    permalink_url: 'https://app.asana.com/0/1111/5555/f',
+    data: {
+        gid: '5555',
+        name: 'Newly Created Task',
+        permalink_url: 'https://app.asana.com/0/1111/5555/f',
+    },
 };
 
 const mockAsanaStory = {
@@ -219,7 +221,7 @@ describe('GitHub Asana Sync Action', () => {
             await Promise.resolve(); // Allow microtasks to run
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                mockAsanaCreatedTask.gid,
+                mockAsanaCreatedTask.data.gid,
                 expect.objectContaining({
                     text: `Link to Issue: ${mockGithubContextPayload.issue.html_url}`,
                     is_pinned: true,
@@ -482,7 +484,7 @@ describe('GitHub Asana Sync Action', () => {
             await Promise.resolve();
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                mockAsanaCreatedTask.gid,
+                mockAsanaCreatedTask.data.gid,
                 expect.objectContaining({
                     text: `Link to Pull Request: ${mockGithubContextPayload.pull_request.html_url}`,
                     is_pinned: true,
@@ -565,7 +567,7 @@ describe('GitHub Asana Sync Action', () => {
                 }),
                 {},
             );
-            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.gid);
+            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.data.gid);
             expect(core.setOutput).toHaveBeenCalledWith('duplicate', false);
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -600,7 +602,7 @@ describe('GitHub Asana Sync Action', () => {
                 }),
                 {},
             );
-            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.gid);
+            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.data.gid);
             expect(core.setOutput).toHaveBeenCalledWith('duplicate', false);
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -630,7 +632,7 @@ describe('GitHub Asana Sync Action', () => {
                 }),
                 {},
             );
-            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.gid);
+            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.data.gid);
             expect(core.setOutput).toHaveBeenCalledWith('duplicate', false);
             expect(core.setFailed).not.toHaveBeenCalled();
         });

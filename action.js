@@ -105,8 +105,8 @@ async function createTaskWithComment(client, name, description, comment, project
         const opts = {};
 
         client.tasks.createTask(body, opts).then((result) => {
-            console.log('task created', result.gid);
-            return createStory(client, result.gid, comment, true);
+            console.log('task created', result.data.gid);
+            return createStory(client, result.data.gid, comment, true);
         });
     } catch (error) {
         console.error('rejecting promise', error);
@@ -354,7 +354,7 @@ async function createTask(
     let createdTaskId = '0';
     try {
         await client.tasks.createTask(body, opts).then((result) => {
-            createdTaskId = result.gid;
+            createdTaskId = result.data.gid;
             console.log('task created', createdTaskId);
             core.setOutput('taskId', createdTaskId);
             core.setOutput('duplicate', false);
