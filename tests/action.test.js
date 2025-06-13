@@ -302,9 +302,15 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(asana.TasksApi).toHaveBeenCalled();
             expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('2222', {
-                completed: true,
-            });
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: true,
+                    },
+                },
+                '2222',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -321,9 +327,15 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(asana.TasksApi).toHaveBeenCalled();
             expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('2222', {
-                completed: false,
-            });
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: false,
+                    },
+                },
+                '2222',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -340,15 +352,33 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(asana.TasksApi).toHaveBeenCalled();
             expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(3);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('2222', {
-                completed: true,
-            });
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('3333', {
-                completed: true,
-            });
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('4444', {
-                completed: true,
-            });
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: true,
+                    },
+                },
+                '2222',
+                {},
+            );
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: true,
+                    },
+                },
+                '3333',
+                {},
+            );
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: true,
+                    },
+                },
+                '4444',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
     });
@@ -1104,6 +1134,80 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setOutput).not.toHaveBeenCalled();
             // Check that setFailed was called with a string containing the task ID and the stringified error
             expect(core.setFailed).toHaveBeenCalledWith(`Failed to retrieve task ${taskId}:`, JSON.stringify(error));
+        });
+    });
+
+    describe('action: mark-asana-task-complete', () => {
+        it('should mark a single Asana task as complete', async () => {
+            mockGetInput({
+                action: 'mark-asana-task-complete',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-123',
+                'is-complete': 'true',
+            });
+
+            await action();
+
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: true,
+                    },
+                },
+                'task-123',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should mark a single Asana task as incomplete', async () => {
+            mockGetInput({
+                action: 'mark-asana-task-complete',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-456',
+                'is-complete': 'false',
+            });
+
+            await action();
+
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: false,
+                    },
+                },
+                'task-456',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should default to incomplete when is-complete is omitted', async () => {
+            mockGetInput({
+                action: 'mark-asana-task-complete',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-789',
+                // 'is-complete' omitted
+            });
+
+            await action();
+
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: false,
+                    },
+                },
+                'task-789',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
         });
     });
 

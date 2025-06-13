@@ -227,7 +227,6 @@ async function createPullRequestTask() {
 }
 
 async function completePRTask() {
-    const client = await buildAsanaClient();
     const isComplete = core.getInput('is-complete') === 'true';
 
     const foundTasks = findAsanaTasks();
@@ -235,13 +234,7 @@ async function completePRTask() {
     const taskIds = [];
     for (const taskId of foundTasks) {
         console.info('marking task', taskId, isComplete ? 'complete' : 'incomplete');
-        try {
-            await client.tasks.update(taskId, {
-                completed: isComplete,
-            });
-        } catch (error) {
-            console.error('rejecting promise', error);
-        }
+        await completeAsanaTask(taskId, isComplete);
         taskIds.push(taskId);
     }
     return taskIds;
@@ -520,6 +513,24 @@ async function postCommentAsanaTask() {
     }
 }
 
+async function markAsanaTaskComplete() {
+    const taskId = core.getInput('asana-task-id', { required: true });
+    const isComplete = core.getInput('is-complete') === 'true';
+
+    return completeAsanaTask(taskId, isComplete);
+}
+
+async function completeAsanaTask(taskId, completed) {
+    const client = await buildAsanaClient();
+    const body = {
+        data: {
+            completed,
+        },
+    };
+    const opts = {};
+    await client.tasks.update(body, taskId, opts);
+}
+
 async function sendMessage(client, channelId, message) {
     try {
         const response = await client.createPost({
@@ -615,6 +626,10 @@ async function action() {
         }
         case 'get-asana-task-permalink': {
             await getTaskPermalink();
+            break;
+        }
+        case 'mark-asana-task-complete': {
+            await markAsanaTaskComplete();
             break;
         }
         default:

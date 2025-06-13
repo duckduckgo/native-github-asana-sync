@@ -31,6 +31,7 @@ This action integrates asana with github.
 - `find-asana-task-id` searches in the PR description for an Asana Task, given a prefix
 - `post-comment-asana-task` to post a comment in an Asana task
 - `get-asana-task-permalink` to get the permalink for a given Asana Task ID
+- `mark-asana-task-complete` to mark an Asana task as complete or incomplete
 
 ### Create Asana task from Github Issue
 
@@ -556,6 +557,49 @@ jobs:
                   action: 'get-asana-task-permalink'
                   asana-pat: ${{ secrets.asana_pat }}
                   asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
+```
+
+### Mark Asana task as complete or incomplete
+
+Marks a specific Asana task as complete or incomplete.
+
+### `asana-pat`
+
+**Required** Asana public access token
+
+### `asana-task-id`
+
+**Required** ID of the Asana task to mark as complete or incomplete
+
+### `is-complete`
+
+**Optional** Set to `true` to mark the task as complete, `false` to mark as incomplete. Defaults to `false` if not provided.
+
+#### Example Usage
+
+```yaml
+on:
+    workflow_dispatch:
+        inputs:
+            task_id:
+                description: 'Asana Task ID'
+                required: true
+            complete:
+                description: 'Mark as complete (true/false)'
+                required: false
+                default: 'true'
+
+jobs:
+    mark-task:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Mark Asana task as complete
+              uses: duckduckgo/native-github-asana-sync@v1.1
+              with:
+                  asana-pat: ${{ secrets.asana_pat }}
+                  asana-task-id: ${{ github.event.inputs.task_id }}
+                  is-complete: ${{ github.event.inputs.complete }}
+                  action: 'mark-asana-task-complete'
 ```
 
 ## Contributing
