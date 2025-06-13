@@ -116,6 +116,18 @@ jest.mock('asana', () => ({
             useAccessToken: mockAsanaUseAccessToken,
         })),
     },
+    ApiClient: {
+        instance: {
+            authentications: {
+                token: { accessToken: null },
+            },
+            defaultHeaders: {},
+        },
+    },
+    TasksApi: jest.fn(() => mockAsanaClient.tasks),
+    StoriesApi: jest.fn(() => mockAsanaClient.stories),
+    SectionsApi: jest.fn(() => mockAsanaClient.sections),
+    UsersApi: jest.fn(() => ({})),
 }));
 
 // Mock @octokit/core
@@ -189,9 +201,8 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
-            expect(mockAsanaUseAccessToken).toHaveBeenCalledWith('mock-asana-pat');
-            expect(mockAsanaAuthorize).toHaveBeenCalled();
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(asana.StoriesApi).toHaveBeenCalled();
 
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -226,7 +237,7 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
+            expect(asana.StoriesApi).toHaveBeenCalled();
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(1); // Only 'Closes' matches trigger
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
                 '2222', // Task ID from the 'Closes' link
@@ -274,7 +285,7 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
+            expect(asana.TasksApi).toHaveBeenCalled();
             expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
             expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('2222', {
                 completed: true,
@@ -293,7 +304,7 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
+            expect(asana.TasksApi).toHaveBeenCalled();
             expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
             expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('2222', {
                 completed: false,
@@ -312,7 +323,7 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
+            expect(asana.TasksApi).toHaveBeenCalled();
             expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(3);
             expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('2222', {
                 completed: true,
@@ -452,7 +463,7 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
+            expect(asana.TasksApi).toHaveBeenCalled();
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
                     name: `Community Pull Request: ${mockGithubContextPayload.pull_request.title}`,

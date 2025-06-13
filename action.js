@@ -7,12 +7,22 @@ const { Client4 } = require('@mattermost/client');
 
 function buildAsanaClient() {
     const asanaPAT = core.getInput('asana-pat');
-    return asana.Client.create({
-        defaultHeaders: { 'asana-enable': 'new-sections,string_ids' },
-        logAsanaChangeWarnings: false,
-    })
-        .useAccessToken(asanaPAT)
-        .authorize();
+
+    // Use v3 API pattern
+    const client = asana.ApiClient.instance;
+    const token = client.authentications.token;
+    token.accessToken = asanaPAT;
+
+    // Add default headers for v3 API
+    client.defaultHeaders['asana-enable'] = 'new-sections,string_ids';
+
+    // Return an object that mimics the v1 API structure for backward compatibility
+    return {
+        tasks: new asana.TasksApi(),
+        stories: new asana.StoriesApi(),
+        sections: new asana.SectionsApi(),
+        users: new asana.UsersApi(),
+    };
 }
 
 function buildGithubClient(githubPAT) {
