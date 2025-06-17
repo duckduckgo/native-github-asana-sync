@@ -19,3 +19,4 @@ jobs:
             - run: npm run build
             - name: Check for uncommitted build file
               run: git diff --exit-code
+              
