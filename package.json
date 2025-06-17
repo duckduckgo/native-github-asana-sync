@@ -9,7 +9,9 @@
         "lint:fix": "eslint --fix . && prettier --write .",
         "test": "jest",
         "test:coverage": "jest ---coverage",
-        "test:watch": "jest --watch"
+        "test:watch": "jest --watch",
+        "prettier": "prettier --check .",
+        "format": "prettier --write ."
     },
     "repository": {
         "type": "git",

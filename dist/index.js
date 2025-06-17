@@ -177,7 +177,7 @@ async function addTaskToProject(client, taskId, projectId, sectionId) {
             const body = {
                 data: {
                     project: projectId,
-                    insert_after: null
+                    insert_after: null,
                 },
             };
             const opts = {};
