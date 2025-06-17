@@ -171,6 +171,7 @@ async function addTaskToProject(client, taskId, projectId, sectionId) {
             const body = {
                 data: {
                     project: projectId,
+                    insert_after: null
                 },
             };
             const opts = {};
@@ -359,7 +360,7 @@ async function createTask(
             core.setOutput('duplicate', false);
         });
     } catch (error) {
-        console.error(error.response.body);
+        console.error('rejecting promise', JSON.stringify(error));
     }
     return createdTaskId;
 }
@@ -528,7 +529,12 @@ async function completeAsanaTask(taskId, completed) {
         },
     };
     const opts = {};
-    await client.tasks.updateTask(body, taskId, opts);
+    try {
+        await client.tasks.updateTask(body, taskId, opts);
+    } catch (error) {
+        console.error('Error completing task:', JSON.stringify(error));
+        core.setFailed(`Error completing task ${taskId}: ${error.message}`);
+    }
 }
 
 async function sendMessage(client, channelId, message) {

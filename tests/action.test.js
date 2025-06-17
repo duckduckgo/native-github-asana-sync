@@ -451,6 +451,7 @@ describe('GitHub Asana Sync Action', () => {
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
                 {
                     data: {
+                        insert_after: null,
                         project: mockAsanaProject,
                     },
                 },
@@ -460,6 +461,7 @@ describe('GitHub Asana Sync Action', () => {
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
                 {
                     data: {
+                        insert_after: null,
                         project: mockAsanaProject,
                     },
                 },
