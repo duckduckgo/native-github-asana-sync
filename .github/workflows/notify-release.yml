@@ -38,8 +38,6 @@ jobs:
           
           **Links:**
           - 📋 [Release Notes](${{ steps.release-info.outputs.release_url }})
-          - 📚 [Documentation](https://github.com/${{ github.repository }}/blob/main/README.md)
-          - 🔧 [Migration Guide](https://github.com/${{ github.repository }}/blob/main/MIGRATION_SUMMARY.md)
           
           **Support:**
           If you encounter any issues, please create an issue in the [GitHub repository](https://github.com/${{ github.repository }}/issues)."
