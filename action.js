@@ -7,12 +7,22 @@ const { Client4 } = require('@mattermost/client');
 
 function buildAsanaClient() {
     const asanaPAT = core.getInput('asana-pat');
-    return asana.Client.create({
-        defaultHeaders: { 'asana-enable': 'new-sections,string_ids' },
-        logAsanaChangeWarnings: false,
-    })
-        .useAccessToken(asanaPAT)
-        .authorize();
+
+    // Use v3 API pattern
+    const client = asana.ApiClient.instance;
+    const token = client.authentications.token;
+    token.accessToken = asanaPAT;
+
+    // Add default headers for v3 API
+    client.defaultHeaders['asana-enable'] = 'new-sections,string_ids';
+
+    // Return an object that mimics the v1 API structure for backward compatibility
+    return {
+        tasks: new asana.TasksApi(),
+        stories: new asana.StoriesApi(),
+        sections: new asana.SectionsApi(),
+        users: new asana.UsersApi(),
+    };
 }
 
 function buildGithubClient(githubPAT) {
@@ -73,10 +83,14 @@ function findAsanaTasks() {
 
 async function createStory(client, taskId, text, isPinned) {
     try {
-        return await client.stories.createStoryForTask(taskId, {
-            text,
-            is_pinned: isPinned,
-        });
+        const body = {
+            data: {
+                text,
+                is_pinned: isPinned,
+            },
+        };
+        const opts = {};
+        return await client.stories.createStoryForTask(body, taskId, opts);
     } catch (error) {
         console.error('rejecting promise', error);
     }
@@ -84,9 +98,19 @@ async function createStory(client, taskId, text, isPinned) {
 
 async function createTaskWithComment(client, name, description, comment, projectId) {
     try {
-        client.tasks.createTask({ name, notes: description, projects: [projectId], pretty: true }).then((result) => {
-            console.log('task created', result.gid);
-            return createStory(client, result.gid, comment, true);
+        const body = {
+            data: {
+                name,
+                notes: description,
+                is_rendered_as_separator: false,
+                projects: [projectId],
+            },
+        };
+        const opts = {};
+
+        client.tasks.createTask(body, opts).then((result) => {
+            console.log('task created', result.data.gid);
+            return createStory(client, result.data.gid, comment, true);
         });
     } catch (error) {
         console.error('rejecting promise', error);
@@ -144,25 +168,28 @@ async function addTaskToProject(client, taskId, projectId, sectionId) {
     if (!sectionId) {
         console.info('adding asana task to project', projectId);
         try {
-            return await client.tasks.addProjectForTask(taskId, {
-                project: projectId,
-                insert_after: null,
-            });
+            const body = {
+                data: {
+                    project: projectId,
+                    insert_after: null,
+                },
+            };
+            const opts = {};
+            return await client.tasks.addProjectForTask(body, taskId, opts);
         } catch (error) {
             console.error('rejecting promise', error);
         }
     } else {
         console.info(`adding asana task to top of section ${sectionId} in project ${projectId}`);
         try {
-            return await client.tasks
-                .addProjectForTask(taskId, {
+            const body = {
+                data: {
                     project: projectId,
-                })
-                .then((result) => {
-                    client.sections.addTaskForSection(sectionId, { task: taskId }).then((result) => {
-                        console.log(result);
-                    });
-                });
+                    section: sectionId,
+                },
+            };
+            const opts = {};
+            return await client.tasks.addProjectForTask(body, taskId, opts);
         } catch (error) {
             console.error('rejecting promise', error);
         }
@@ -201,7 +228,6 @@ async function createPullRequestTask() {
 }
 
 async function completePRTask() {
-    const client = await buildAsanaClient();
     const isComplete = core.getInput('is-complete') === 'true';
 
     const foundTasks = findAsanaTasks();
@@ -209,13 +235,7 @@ async function completePRTask() {
     const taskIds = [];
     for (const taskId of foundTasks) {
         console.info('marking task', taskId, isComplete ? 'complete' : 'incomplete');
-        try {
-            await client.tasks.update(taskId, {
-                completed: isComplete,
-            });
-        } catch (error) {
-            console.error('rejecting promise', error);
-        }
+        await completeAsanaTask(taskId, isComplete);
         taskIds.push(taskId);
     }
     return taskIds;
@@ -300,7 +320,6 @@ async function createTask(
         projects: [projectId],
         tags,
         followers: collaborators,
-        pretty: true,
     };
 
     if (assignee) {
@@ -328,11 +347,14 @@ async function createTask(
         taskOpts.memberships = [{ project: projectId, section: sectionId }];
     }
 
+    const body = { data: taskOpts };
+    const opts = {};
+
     console.log(`creating new task with options:='${JSON.stringify(taskOpts)}'`);
     let createdTaskId = '0';
     try {
-        await client.tasks.createTask(taskOpts).then((result) => {
-            createdTaskId = result.gid;
+        await client.tasks.createTask(body, opts).then((result) => {
+            createdTaskId = result.data.gid;
             console.log('task created', createdTaskId);
             core.setOutput('taskId', createdTaskId);
             core.setOutput('duplicate', false);
@@ -443,10 +465,10 @@ async function getTaskPermalink() {
 
     console.log('Getting permalink for task', asanaTaskId);
     try {
-        const task = await client.tasks.getTask(asanaTaskId);
-        if (task) {
-            core.setOutput('asanaTaskPermalink', task.permalink_url);
-            console.log(`Task permalink: ${task.permalink_url}`);
+        const response = await client.tasks.getTask(asanaTaskId);
+        if (response && response.data) {
+            core.setOutput('asanaTaskPermalink', response.data.permalink_url);
+            console.log(`Task permalink: ${response.data.permalink_url}`);
         }
     } catch (error) {
         core.setFailed(`Failed to retrieve task ${asanaTaskId}:`, JSON.stringify(error));
@@ -489,6 +511,29 @@ async function postCommentAsanaTask() {
         console.info(`Comments added to ${taskIds.length} Asana task(s)`);
     } else {
         core.setFailed(`Failed to post comments to one or more Asana tasks`);
+    }
+}
+
+async function markAsanaTaskComplete() {
+    const taskId = core.getInput('asana-task-id', { required: true });
+    const isComplete = core.getInput('is-complete') === 'true';
+
+    return completeAsanaTask(taskId, isComplete);
+}
+
+async function completeAsanaTask(taskId, completed) {
+    const client = await buildAsanaClient();
+    const body = {
+        data: {
+            completed,
+        },
+    };
+    const opts = {};
+    try {
+        await client.tasks.updateTask(body, taskId, opts);
+    } catch (error) {
+        console.error('Error completing task:', JSON.stringify(error));
+        core.setFailed(`Error completing task ${taskId}: ${error.message}`);
     }
 }
 
@@ -587,6 +632,10 @@ async function action() {
         }
         case 'get-asana-task-permalink': {
             await getTaskPermalink();
+            break;
+        }
+        case 'mark-asana-task-complete': {
+            await markAsanaTaskComplete();
             break;
         }
         default:

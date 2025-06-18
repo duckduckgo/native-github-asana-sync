@@ -34,9 +34,11 @@ const mockAsanaTask = {
 };
 
 const mockAsanaCreatedTask = {
-    gid: '5555',
-    name: 'Newly Created Task',
-    permalink_url: 'https://app.asana.com/0/1111/5555/f',
+    data: {
+        gid: '5555',
+        name: 'Newly Created Task',
+        permalink_url: 'https://app.asana.com/0/1111/5555/f',
+    },
 };
 
 const mockAsanaStory = {
@@ -97,7 +99,7 @@ const mockAsanaClient = {
     tasks: {
         createTask: jest.fn().mockResolvedValue(mockAsanaCreatedTask),
         addProjectForTask: jest.fn().mockResolvedValue({}),
-        update: jest.fn().mockResolvedValue({}),
+        updateTask: jest.fn().mockResolvedValue({}),
         getTasksForSection: jest.fn().mockResolvedValue({ data: [] }), // Default: no existing tasks
         getTask: jest.fn().mockResolvedValue(mockAsanaTask),
     },
@@ -116,6 +118,18 @@ jest.mock('asana', () => ({
             useAccessToken: mockAsanaUseAccessToken,
         })),
     },
+    ApiClient: {
+        instance: {
+            authentications: {
+                token: { accessToken: null },
+            },
+            defaultHeaders: {},
+        },
+    },
+    TasksApi: jest.fn(() => mockAsanaClient.tasks),
+    StoriesApi: jest.fn(() => mockAsanaClient.stories),
+    SectionsApi: jest.fn(() => mockAsanaClient.sections),
+    UsersApi: jest.fn(() => ({})),
 }));
 
 // Mock @octokit/core
@@ -189,27 +203,32 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
-            expect(mockAsanaUseAccessToken).toHaveBeenCalledWith('mock-asana-pat');
-            expect(mockAsanaAuthorize).toHaveBeenCalled();
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(asana.StoriesApi).toHaveBeenCalled();
 
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: `Github Issue: ${mockGithubContextPayload.issue.title}`,
-                    notes: `Description: ${mockGithubContextPayload.issue.body}`,
-                    projects: [mockAsanaProject],
+                    data: expect.objectContaining({
+                        name: `Github Issue: ${mockGithubContextPayload.issue.title}`,
+                        notes: `Description: ${mockGithubContextPayload.issue.body}`,
+                        projects: [mockAsanaProject],
+                    }),
                 }),
+                {},
             );
 
             // Wait for the promise chain in createTaskWithComment
             await Promise.resolve(); // Allow microtasks to run
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                mockAsanaCreatedTask.gid,
                 expect.objectContaining({
-                    text: `Link to Issue: ${mockGithubContextPayload.issue.html_url}`,
-                    is_pinned: true,
+                    data: expect.objectContaining({
+                        text: `Link to Issue: ${mockGithubContextPayload.issue.html_url}`,
+                        is_pinned: true,
+                    }),
                 }),
+                mockAsanaCreatedTask.data.gid,
+                {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -226,14 +245,17 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
+            expect(asana.StoriesApi).toHaveBeenCalled();
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(1); // Only 'Closes' matches trigger
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                '2222', // Task ID from the 'Closes' link
                 expect.objectContaining({
-                    text: `PR: ${mockGithubContextPayload.pull_request.html_url} has been approved`,
-                    is_pinned: false,
+                    data: expect.objectContaining({
+                        text: `PR: ${mockGithubContextPayload.pull_request.html_url} has been approved`,
+                        is_pinned: false,
+                    }),
                 }),
+                '2222', // Task ID from the 'Closes' link
+                {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -253,10 +275,14 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(1);
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                '4444', // Task ID from the second 'Closes' link
                 expect.objectContaining({
-                    text: `PR: ${mockGithubContextPayload.pull_request.html_url} has been approved`,
+                    data: expect.objectContaining({
+                        text: `PR: ${mockGithubContextPayload.pull_request.html_url} has been approved`,
+                        is_pinned: false,
+                    }),
                 }),
+                '4444', // Task ID from the second 'Closes' link
+                {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -274,11 +300,17 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('2222', {
-                completed: true,
-            });
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: true,
+                    },
+                },
+                '2222',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -293,11 +325,17 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(1);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('2222', {
-                completed: false,
-            });
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: false,
+                    },
+                },
+                '2222',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -312,17 +350,35 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledTimes(3);
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('2222', {
-                completed: true,
-            });
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('3333', {
-                completed: true,
-            });
-            expect(mockAsanaClient.tasks.update).toHaveBeenCalledWith('4444', {
-                completed: true,
-            });
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(3);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: true,
+                    },
+                },
+                '2222',
+                {},
+            );
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: true,
+                    },
+                },
+                '3333',
+                {},
+            );
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: true,
+                    },
+                },
+                '4444',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
     });
@@ -364,11 +420,14 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(1);
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                '3333', // From 'Fixes' link
                 expect.objectContaining({
-                    text: `PR: ${mockGithubContextPayload.pull_request.html_url}`,
-                    is_pinned: true,
+                    data: expect.objectContaining({
+                        text: `PR: ${mockGithubContextPayload.pull_request.html_url}`,
+                        is_pinned: true,
+                    }),
                 }),
+                '3333', // From 'Fixes' link
+                {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -389,14 +448,26 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledTimes(2);
-            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith('task-abc', {
-                project: mockAsanaProject,
-                insert_after: null,
-            });
-            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith('task-def', {
-                project: mockAsanaProject,
-                insert_after: null,
-            });
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        insert_after: null,
+                        project: mockAsanaProject,
+                    },
+                },
+                'task-abc',
+                {},
+            );
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        insert_after: null,
+                        project: mockAsanaProject,
+                    },
+                },
+                'task-def',
+                {},
+            );
             expect(mockAsanaClient.sections.addTaskForSection).not.toHaveBeenCalled();
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -413,16 +484,28 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledTimes(2);
-            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith('task-abc', { project: mockAsanaProject });
-            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith('task-def', { project: mockAsanaProject });
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        project: mockAsanaProject,
+                        section: mockAsanaSection,
+                    },
+                },
+                'task-abc',
+                {},
+            );
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        project: mockAsanaProject,
+                        section: mockAsanaSection,
+                    },
+                },
+                'task-def',
+                {},
+            );
 
-            // Wait for promise chain
-            await Promise.resolve();
-            await Promise.resolve(); // Might need more if timing is tight
-
-            expect(mockAsanaClient.sections.addTaskForSection).toHaveBeenCalledTimes(2);
-            expect(mockAsanaClient.sections.addTaskForSection).toHaveBeenCalledWith(mockAsanaSection, { task: 'task-abc' });
-            expect(mockAsanaClient.sections.addTaskForSection).toHaveBeenCalledWith(mockAsanaSection, { task: 'task-def' });
+            // No need for additional section calls since section is included in addProjectForTask
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -452,24 +535,30 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(asana.Client.create).toHaveBeenCalled();
+            expect(asana.TasksApi).toHaveBeenCalled();
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: `Community Pull Request: ${mockGithubContextPayload.pull_request.title}`,
-                    notes: `Description: ${mockGithubContextPayload.pull_request.body}`,
-                    projects: [mockAsanaProject],
+                    data: expect.objectContaining({
+                        name: `Community Pull Request: ${mockGithubContextPayload.pull_request.title}`,
+                        notes: `Description: ${mockGithubContextPayload.pull_request.body}`,
+                        projects: [mockAsanaProject],
+                    }),
                 }),
+                {},
             );
 
             // Wait for promise chain
             await Promise.resolve();
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
-                mockAsanaCreatedTask.gid,
                 expect.objectContaining({
-                    text: `Link to Pull Request: ${mockGithubContextPayload.pull_request.html_url}`,
-                    is_pinned: true,
+                    data: expect.objectContaining({
+                        text: `Link to Pull Request: ${mockGithubContextPayload.pull_request.html_url}`,
+                        is_pinned: true,
+                    }),
                 }),
+                mockAsanaCreatedTask.data.gid,
+                {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -538,14 +627,17 @@ describe('GitHub Asana Sync Action', () => {
             expect(mockAsanaClient.tasks.getTasksForSection).not.toHaveBeenCalled(); // No section provided
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: taskName,
-                    notes: taskDescription,
-                    projects: [mockAsanaProject],
-                    tags: [],
-                    followers: [],
+                    data: expect.objectContaining({
+                        name: taskName,
+                        notes: taskDescription,
+                        projects: [mockAsanaProject],
+                        tags: [],
+                        followers: [],
+                    }),
                 }),
+                {},
             );
-            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.gid);
+            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.data.gid);
             expect(core.setOutput).toHaveBeenCalledWith('duplicate', false);
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -568,16 +660,19 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: taskName,
-                    notes: taskDescription,
-                    projects: [mockAsanaProject],
-                    tags: [mockAsanaTagId, 'tag-xyz'],
-                    followers: [mockAsanaCollaboratorId, 'collab-abc'],
-                    assignee: mockAsanaUserId,
-                    custom_fields: { 12345: 'field_value' },
+                    data: expect.objectContaining({
+                        name: taskName,
+                        notes: taskDescription,
+                        projects: [mockAsanaProject],
+                        tags: [mockAsanaTagId, 'tag-xyz'],
+                        followers: [mockAsanaCollaboratorId, 'collab-abc'],
+                        assignee: mockAsanaUserId,
+                        custom_fields: { 12345: 'field_value' },
+                    }),
                 }),
+                {},
             );
-            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.gid);
+            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.data.gid);
             expect(core.setOutput).toHaveBeenCalledWith('duplicate', false);
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -599,12 +694,15 @@ describe('GitHub Asana Sync Action', () => {
             expect(mockAsanaClient.tasks.getTasksForSection).toHaveBeenCalledWith(mockAsanaSection);
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: taskName,
-                    projects: [mockAsanaProject], // Projects still needed
-                    memberships: [{ project: mockAsanaProject, section: mockAsanaSection }],
+                    data: expect.objectContaining({
+                        name: taskName,
+                        projects: [mockAsanaProject], // Projects still needed
+                        memberships: [{ project: mockAsanaProject, section: mockAsanaSection }],
+                    }),
                 }),
+                {},
             );
-            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.gid);
+            expect(core.setOutput).toHaveBeenCalledWith('taskId', mockAsanaCreatedTask.data.gid);
             expect(core.setOutput).toHaveBeenCalledWith('duplicate', false);
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -856,9 +954,21 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(3);
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task1', { text: comment, is_pinned: false });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task2', { text: comment, is_pinned: false });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task3', { text: comment, is_pinned: false });
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: false } },
+                'task1',
+                {},
+            );
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: false } },
+                'task2',
+                {},
+            );
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: false } },
+                'task3',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -874,9 +984,21 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(3);
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task1', { text: comment, is_pinned: true });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task2', { text: comment, is_pinned: true });
-            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith('task3', { text: comment, is_pinned: true });
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: true } },
+                'task1',
+                {},
+            );
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: true } },
+                'task2',
+                {},
+            );
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { text: comment, is_pinned: true } },
+                'task3',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -985,11 +1107,13 @@ describe('GitHub Asana Sync Action', () => {
                 'asana-pat': 'mock-asana-pat',
                 'asana-task-id': taskId,
             });
-            // Ensure getTask returns the mock task with a permalink
+            // Ensure getTask returns the mock task with a permalink in v3 API format
             mockAsanaClient.tasks.getTask.mockResolvedValue({
-                ...mockAsanaTask,
-                gid: taskId, // Match requested ID
-                permalink_url: `https://app.asana.com/0/${mockAsanaProject}/${taskId}/f`,
+                data: {
+                    ...mockAsanaTask,
+                    gid: taskId, // Match requested ID
+                    permalink_url: `https://app.asana.com/0/${mockAsanaProject}/${taskId}/f`,
+                },
             });
 
             await action();
@@ -1014,6 +1138,80 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setOutput).not.toHaveBeenCalled();
             // Check that setFailed was called with a string containing the task ID and the stringified error
             expect(core.setFailed).toHaveBeenCalledWith(`Failed to retrieve task ${taskId}:`, JSON.stringify(error));
+        });
+    });
+
+    describe('action: mark-asana-task-complete', () => {
+        it('should mark a single Asana task as complete', async () => {
+            mockGetInput({
+                action: 'mark-asana-task-complete',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-123',
+                'is-complete': 'true',
+            });
+
+            await action();
+
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: true,
+                    },
+                },
+                'task-123',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should mark a single Asana task as incomplete', async () => {
+            mockGetInput({
+                action: 'mark-asana-task-complete',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-456',
+                'is-complete': 'false',
+            });
+
+            await action();
+
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: false,
+                    },
+                },
+                'task-456',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should default to incomplete when is-complete is omitted', async () => {
+            mockGetInput({
+                action: 'mark-asana-task-complete',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-789',
+                // 'is-complete' omitted
+            });
+
+            await action();
+
+            expect(asana.TasksApi).toHaveBeenCalled();
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        completed: false,
+                    },
+                },
+                'task-789',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
         });
     });
 
