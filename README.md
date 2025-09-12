@@ -27,9 +27,12 @@ This action integrates asana with github.
 - `create-asana-pr-task` to create a task in Asana based on the Github Pull Request
 - `get-latest-repo-release` to find the latest release version of a Github Repository
 - `create-asana-task` to create a task in Asana
+- `add-task-pr-description` to add the Asana Task URL to a PR description
 - `get-asana-user-id` to return the Asana User Id of a given Github actor
 - `find-asana-task-id` searches in the PR description for an Asana Task, given a prefix
+- `find-asana-task-ids` searches in the PR description for multiple Asana Tasks, given a prefix
 - `post-comment-asana-task` to post a comment in an Asana task
+- `send-mattermost-message` to send a message to a channel in Mattermost
 - `get-asana-task-permalink` to get the permalink for a given Asana Task ID
 - `mark-asana-task-complete` to mark an Asana task as complete or incomplete
 

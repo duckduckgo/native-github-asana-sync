@@ -36,8 +36,17 @@ inputs:
     asana-collaborators:
         description: 'Comma-separated Asana user IDs or emails of users to be added as followers.'
         required: false
+    asana-assignee:
+        description: 'Asana ID of the user to whom the task should be assigned.'
+        required: false
     trigger-phrase:
         description: 'Prefix used to identify Asana tasks (URL). If not provided, any Asana URL in the text will be matched.'
+        required: false
+    is-complete:
+        description: 'Set to true to mark the task(s) as complete, false to mark as incomplete. Defaults to false if not provided. [true | false].'
+        required: false
+    is-pinned:
+        description: 'Pin a comment on Asana task(s). [true | false].'
         required: false
     github-repository:
         description: 'Github Repository to check for the latest release.'
