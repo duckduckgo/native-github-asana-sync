@@ -51,6 +51,33 @@ function getArrayFromInput(input) {
         : [];
 }
 
+/**
+ * Return array of project GIDs configured to prevent auto-closing subtasks.
+ */
+function getNoAutocloseProjectList() {
+    return getArrayFromInput(core.getInput('NO_AUTOCLOSE_PROJECTS') || '');
+}
+
+/**
+ * Check whether a task belongs to any project in NO_AUTOCLOSE_PROJECTS.
+ * Returns true if the task is in one of those projects, false otherwise.
+ */
+async function isTaskInNoAutocloseProjects(client, taskId) {
+    const noAutocloseList = getNoAutocloseProjectList();
+    if (!noAutocloseList || noAutocloseList.length === 0) return false;
+
+    try {
+        const resp = await client.tasks.getTask(taskId, { opt_fields: 'memberships.project.gid' });
+        const memberships = (resp && resp.data && resp.data.memberships) || [];
+        const projectIds = memberships.map(m => (m.project && m.project.gid) || null).filter(Boolean);
+        return projectIds.some(id => noAutocloseList.includes(id));
+    } catch (err) {
+        console.warn(`Unable to inspect memberships for task ${taskId}: ${err.message}`);
+        // Fail-open: if we can't determine membership, allow auto-close
+        return false;
+    }
+}
+
 function findAsanaTasks() {
     const triggerPhrase = core.getInput('trigger-phrase');
     const pullRequest = github.context.payload.pull_request;
@@ -858,17 +885,26 @@ async function getSubtasks(client, parentTaskId) {
 
 async function resolveReviewSubtask(client, subtaskId, comment) {
     try {
-        // Mark as complete
+        // Skip auto-closing if subtask belongs to NO_AUTOCLOSE_PROJECTS
+        try {
+            if (await isTaskInNoAutocloseProjects(client, subtaskId)) {
+                console.info(`Skipping auto-complete for subtask ${subtaskId} because it belongs to NO_AUTOCLOSE_PROJECTS`);
+                return;
+            }
+        } catch (checkErr) {
+            console.warn(`Error checking NO_AUTOCLOSE_PROJECTS for ${subtaskId}: ${checkErr.message}`);
+            // continue to resolve if the check fails
+        }
+
+        // Proceed to complete the subtask
         const body = {
             data: {
                 completed: true,
             },
         };
         await client.tasks.updateTask(body, subtaskId, {});
-        
         // Add resolution comment
         await createStory(client, subtaskId, comment, true);
-        
     } catch (error) {
         console.error(`Error resolving subtask ${subtaskId}: ${error.message}`);
         throw error;
@@ -895,16 +931,31 @@ async function updateReviewSubtask(client, subtaskId, newName, comment) {
 }
 
 async function resolveAllPendingSubtasks(client, subtasks, reason) {
+    if (!Array.isArray(subtasks)) subtasks = [subtasks];
+
+    const results = [];
     for (const subtask of subtasks) {
-        if (subtask.name.includes('Code review for PR #') && !subtask.completed) {
-            try {
-                await resolveReviewSubtask(client, subtask.gid, reason);
-                console.info(`Resolved pending subtask ${subtask.gid} - ${reason}`);
-            } catch (error) {
-                console.error(`Failed to resolve subtask ${subtask.gid}: ${error.message}`);
+        const id = subtask && (subtask.gid || subtask.id) ? (subtask.gid || subtask.id) : subtask;
+        try {
+            if (!id) continue;
+
+            // Skip if subtask is in NO_AUTOCLOSE_PROJECTS
+            if (await isTaskInNoAutocloseProjects(client, id)) {
+                console.info(`Skipping auto-complete for subtask ${id} (NO_AUTOCLOSE_PROJECTS)`);
+                results.push({ id, skipped: true });
+                continue;
             }
+
+            // Attempt to resolve subtask
+            await resolveReviewSubtask(client, id, reason);
+            results.push({ id, skipped: false, success: true });
+        } catch (err) {
+            console.error(`Error resolving subtask ${id}: ${err.message}`);
+            results.push({ id, skipped: false, success: false, error: err.message });
         }
     }
+
+    return results;
 }
 
 async function completePRTask() {
@@ -1183,226 +1234,4 @@ async function postCommentAsanaTask() {
     for (const taskId of taskIds) {
         console.info(`Adding comment to Asana task ${taskId}`);
         const comment = await createStory(client, taskId, taskComment, isPinned);
-        if (comment == null) {
-            console.error(`Failed to add comment to task ${taskId}`);
-            success = false;
-        }
-    }
-
-    if (success) {
-        console.info(`Comments added to ${taskIds.length} Asana task(s)`);
-    } else {
-        core.setFailed(`Failed to post comments to one or more Asana tasks`);
-    }
-}
-
-async function markAsanaTaskComplete() {
-    const taskId = core.getInput('asana-task-id', { required: true });
-    const isComplete = core.getInput('is-complete') === 'true';
-
-    return completeAsanaTask(taskId, isComplete);
-}
-
-async function completeAsanaTask(taskId, completed) {
-    const client = await buildAsanaClient();
-    const body = {
-        data: {
-            completed,
-        },
-    };
-    const opts = {};
-    try {
-        await client.tasks.updateTask(body, taskId, opts);
-    } catch (error) {
-        console.error('Error completing task:', JSON.stringify(error));
-        core.setFailed(`Error completing task ${taskId}: ${error.message}`);
-    }
-}
-
-async function sendMessage(client, channelId, message) {
-    try {
-        const response = await client.createPost({
-            channel_id: channelId,
-            message,
-        });
-        console.log('Message sent:', response);
-    } catch (error) {
-        core.setFailed(`Error sending message`);
-    }
-}
-
-async function sendMattermostMessage() {
-    const channelName = core.getInput('mattermost-channel-name');
-    const message = core.getInput('mattermost-message');
-    const teamId = core.getInput('mattermost-team-id');
-
-    const client = buildMattermostClient();
-
-    const channel = await client.getChannelByName(teamId, channelName);
-    if (channel) {
-        console.log(`Channel "${channel.id}" found.`);
-        await sendMessage(client, channel.id, message);
-    } else {
-        core.setFailed(`Channel "${channelName}" not found.`);
-    }
-}
-
-async function asanaPRSync() {
-    const eventName = github.context.eventName;
-    const pullRequest = github.context.payload.pull_request;
-    const review = github.context.payload.review;
-    
-    console.info(`GitHub event: ${eventName}`);
-    
-    if (!pullRequest) {
-        core.setFailed('This action only works with pull request events');
-        return;
-    }
-
-    try {
-        if (eventName === 'pull_request') {
-            await handlePullRequestEvent(pullRequest);
-        } else if (eventName === 'pull_request_review') {
-            await handlePullRequestReviewEvent(pullRequest, review);
-        } else {
-            core.setFailed(`Unsupported event type: ${eventName}`);
-        }
-    } catch (error) {
-        console.error(`Error in asana-pr-sync: ${error.message}`);
-        core.setFailed(`Asana PR sync failed: ${error.message}`);
-    }
-}
-
-async function handlePullRequestEvent(pullRequest) {
-    const action = github.context.payload.action;
-    console.info(`PR action: ${action}`);
-    
-    switch (action) {
-        case 'opened':
-            console.info('PR opened - creating task and subtasks');
-            await createPRTask();
-            await createReviewSubtasks();
-            break;
-            
-        case 'edited':
-            console.info('PR edited - updating task');
-            await updatePRTask();
-            break;
-            
-        case 'closed':
-            console.info('PR closed - updating state and resolving subtasks');
-            await updatePRState();
-            await updateReviewSubtaskStatus();
-            break;
-            
-        case 'review_requested':
-            console.info('Review requested - creating review subtasks');
-            await createReviewSubtasks();
-            break;
-            
-        case 'assigned':
-            console.info('PR assigned - creating assignment subtasks');
-            await createReviewSubtasks();
-            break;
-            
-        default:
-            console.info(`PR action ${action} - updating state only`);
-            await updatePRState();
-    }
-}
-
-async function handlePullRequestReviewEvent(pullRequest, review) {
-    console.info(`PR review event - updating subtask status`);
-    await updateReviewSubtaskStatus();
-}
-
-async function action() {
-    const action = core.getInput('action', { required: true });
-    console.info('calling', action);
-
-    switch (action) {
-        case 'asana-pr-sync': {
-            await asanaPRSync();
-            break;
-        }
-        case 'create-asana-issue-task': {
-            await createIssueTask();
-            break;
-        }
-        case 'notify-pr-approved': {
-            await notifyPRApproved();
-            break;
-        }
-        case 'notify-pr-merged': {
-            await completePRTask();
-            break;
-        }
-        case 'check-pr-membership': {
-            await checkPRMembership();
-            break;
-        }
-        case 'add-asana-comment': {
-            await addCommentToPRTask();
-            break;
-        }
-        case 'add-task-asana-project': {
-            await addTaskToAsanaProject();
-            break;
-        }
-        case 'create-asana-pr-task': {
-            await createPullRequestTask();
-            break;
-        }
-        case 'create-pr-task': {
-            await createPRTask();
-            break;
-        }
-        case 'get-latest-repo-release': {
-            await getLatestRepositoryRelease();
-            break;
-        }
-        case 'create-asana-task': {
-            await createAsanaTask();
-            break;
-        }
-        case 'add-task-pr-description': {
-            await addTaskPRDescription();
-            break;
-        }
-        case 'get-asana-user-id': {
-            await getAsanaUserID();
-            break;
-        }
-        case 'find-asana-task-id': {
-            await findAsanaTaskId();
-            break;
-        }
-        case 'find-asana-task-ids': {
-            await findAsanaTaskIds();
-            break;
-        }
-        case 'post-comment-asana-task': {
-            await postCommentAsanaTask();
-            break;
-        }
-        case 'send-mattermost-message': {
-            await sendMattermostMessage();
-            break;
-        }
-        case 'get-asana-task-permalink': {
-            await getTaskPermalink();
-            break;
-        }
-        case 'mark-asana-task-complete': {
-            await markAsanaTaskComplete();
-            break;
-        }
-        default:
-            core.setFailed(`unexpected action ${action}`);
-    }
-}
-
-module.exports = {
-    action,
-    default: action,
-};
+        if

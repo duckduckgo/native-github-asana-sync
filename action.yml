@@ -85,7 +85,9 @@ inputs:
         description: 'If true, creates only one subtask assigned to PR author instead of separate tasks for reviewers/assignees'
         required: false
         default: 'false'
-
+    NO_AUTOCLOSE_PROJECTS:
+        description: 'Comma-separated list of Asana project GIDs for which review subtasks should NOT be auto-closed when a PR review is approved.'
+        required: false
 runs:
     using: 'node20'
     main: 'dist/index.js'
