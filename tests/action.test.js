@@ -783,6 +783,18 @@ describe('GitHub Asana Sync Action', () => {
 
     describe('action: get-asana-user-id', () => {
         const ghUser = 'test-user';
+        const mockBase64Content = Buffer.from(JSON.stringify(mockUserMap)).toString('base64');
+
+        beforeEach(() => {
+            jest.clearAllMocks();
+            mockOctokitRequest.mockReset();
+            mockOctokitRequest.mockResolvedValue({
+                data: {
+                    content: mockBase64Content,
+                    encoding: 'base64'
+                }
+            });
+        });
 
         it('should get Asana user ID from map using input username', async () => {
             mockGetInput({
@@ -790,7 +802,6 @@ describe('GitHub Asana Sync Action', () => {
                 'github-pat': 'mock-github-pat',
                 'github-username': ghUser,
             });
-            // yaml.load already mocked to return mockUserMap
 
             await action();
 
@@ -810,9 +821,7 @@ describe('GitHub Asana Sync Action', () => {
             mockGetInput({
                 action: 'get-asana-user-id',
                 'github-pat': 'mock-github-pat',
-                // No github-username input
             });
-            // Context payload already has pull_request.user.login = 'test-user'
 
             await action();
 
@@ -830,12 +839,24 @@ describe('GitHub Asana Sync Action', () => {
                 'github-username': unknownUser,
             });
 
-            await action();
+            // Mock empty user map
+            mockOctokitRequest.mockResolvedValue({
+                data: {
+                    content: Buffer.from(JSON.stringify({})).toString('base64'),
+                    encoding: 'base64'
+                }
+            });
 
-            expect(mockOctokitRequest).toHaveBeenCalled();
-            expect(yaml.load).toHaveBeenCalled();
-            expect(core.setOutput).not.toHaveBeenCalled();
-            expect(core.setFailed).toHaveBeenCalledWith(`User ${unknownUser} not found in user map`);
+            try {
+                await action();
+                fail('Expected action to throw');
+            } catch (error) {
+                expect(error.message).toBe(`User ${unknownUser} not found in user map`);
+                expect(mockOctokitRequest).toHaveBeenCalled();
+                expect(yaml.load).toHaveBeenCalled();
+                expect(core.setOutput).not.toHaveBeenCalled();
+                expect(core.setFailed).toHaveBeenCalledWith(`User ${unknownUser} not found in user map`);
+            }
         });
 
         it('should fail if GitHub request fails', async () => {
@@ -844,15 +865,20 @@ describe('GitHub Asana Sync Action', () => {
                 'github-pat': 'mock-github-pat',
                 'github-username': 'test-user',
             });
+
             const error = new Error('API Error');
             mockOctokitRequest.mockRejectedValue(error);
 
-            await action();
-
-            expect(mockOctokitRequest).toHaveBeenCalled();
-            expect(yaml.load).not.toHaveBeenCalled();
-            expect(core.setOutput).not.toHaveBeenCalled();
-            expect(core.setFailed).toHaveBeenCalledWith(error);
+            try {
+                await action();
+                fail('Expected action to throw');
+            } catch (error) {
+                expect(error.message).toBe('API Error');
+                expect(mockOctokitRequest).toHaveBeenCalled();
+                expect(yaml.load).not.toHaveBeenCalled();
+                expect(core.setOutput).not.toHaveBeenCalled();
+                expect(core.setFailed).toHaveBeenCalledWith('API Error');
+            }
         });
     });
 

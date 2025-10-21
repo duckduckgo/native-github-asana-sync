@@ -69,8 +69,8 @@ async function isTaskInNoAutocloseProjects(client, taskId) {
     try {
         const resp = await client.tasks.getTask(taskId, { opt_fields: 'memberships.project.gid' });
         const memberships = (resp && resp.data && resp.data.memberships) || [];
-        const projectIds = memberships.map(m => (m.project && m.project.gid) || null).filter(Boolean);
-        return projectIds.some(id => noAutocloseList.includes(id));
+        const projectIds = memberships.map((m) => (m.project && m.project.gid) || null).filter(Boolean);
+        return projectIds.some((id) => noAutocloseList.includes(id));
     } catch (err) {
         console.warn(`Unable to inspect memberships for task ${taskId}: ${err.message}`);
         // Fail-open: if we can't determine membership, allow auto-close
@@ -278,7 +278,7 @@ async function createPRTask() {
     console.info('creating asana task for pull request', pullRequest.title);
 
     const taskName = pullRequest.title;
-    
+
     // Create task description with prelude
     const prelude = `**Note:** This description is automatically updated from Github. **Changes will be LOST**.
 
@@ -294,7 +294,7 @@ PR: ${pullRequest.html_url}
     // Check for referenced Asana tasks in PR description
     const referencedTaskIds = findAsanaTasks();
     let parentTaskId = null;
-    
+
     if (referencedTaskIds.length > 0) {
         parentTaskId = referencedTaskIds[0];
         console.info(`Found referenced Asana task ${parentTaskId}, creating PR task as subtask`);
@@ -320,7 +320,7 @@ PR: ${pullRequest.html_url}
         tags,
         collaborators,
         prAuthorAsanaId || assignee, // Use PR author as assignee if found, otherwise use input assignee
-        customFields
+        customFields,
     );
 
     // If we found a referenced task, make this PR task a subtask
@@ -356,7 +356,7 @@ async function updatePRTask() {
 
     // Find the Asana task for this PR by looking for the PR URL in task comments
     const taskId = await findPRTaskByURL(client, pullRequest.html_url, asanaProjectId);
-    
+
     if (!taskId) {
         console.warn(`No Asana task found for PR ${pullRequest.number}`);
         core.setOutput('taskUpdated', false);
@@ -371,7 +371,7 @@ PR: ${pullRequest.html_url}
 
 `;
         const taskDescription = prelude + (pullRequest.body || 'No description provided');
-        
+
         const body = {
             data: {
                 name: pullRequest.title,
@@ -379,17 +379,16 @@ PR: ${pullRequest.html_url}
             },
         };
         const opts = {};
-        
+
         await client.tasks.updateTask(body, taskId, opts);
-        
+
         // Add a comment about the update
         const comment = `PR updated - Title: ${pullRequest.title}`;
         await createStory(client, taskId, comment, false);
-        
+
         core.setOutput('asanaTaskId', taskId);
         core.setOutput('taskUpdated', true);
         console.info(`Updated Asana task ${taskId} - Title: ${pullRequest.title}`);
-        
     } catch (error) {
         console.error(`Failed to update task: ${error.message}`);
         core.setFailed(`Failed to update Asana task: ${error.message}`);
@@ -401,18 +400,16 @@ async function findPRTaskByURL(client, prURL, projectId) {
         // Get all tasks in the project
         const response = await client.tasks.getTasksForProject(projectId, {});
         const tasks = response.data;
-        
+
         // Look for a task that has a comment containing the PR URL
         for (const task of tasks) {
             try {
                 const storiesResponse = await client.stories.getStoriesForTask(task.gid, {});
                 const stories = storiesResponse.data;
-                
+
                 // Check if any story contains the PR URL
-                const hasPRURL = stories.some(story => 
-                    story.text && story.text.includes(prURL)
-                );
-                
+                const hasPRURL = stories.some((story) => story.text && story.text.includes(prURL));
+
                 if (hasPRURL) {
                     console.info(`Found Asana task ${task.gid} for PR ${prURL}`);
                     return task.gid;
@@ -422,10 +419,9 @@ async function findPRTaskByURL(client, prURL, projectId) {
                 console.debug(`Could not get stories for task ${task.gid}: ${storyError.message}`);
             }
         }
-        
+
         console.info(`No Asana task found with PR URL: ${prURL}`);
         return null;
-        
     } catch (error) {
         console.error(`Error searching for PR task: ${error.message}`);
         return null;
@@ -456,13 +452,12 @@ async function checkForApprovedReviews(pullRequest) {
         });
 
         const reviews = response.data;
-        
+
         // Check if any review has state 'approved'
-        const hasApprovedReview = reviews.some(review => review.state === 'approved');
-        
+        const hasApprovedReview = reviews.some((review) => review.state === 'approved');
+
         console.info(`PR ${prNumber} has ${reviews.length} reviews, approved: ${hasApprovedReview}`);
         return hasApprovedReview;
-        
     } catch (error) {
         console.error(`Error checking reviews: ${error.message}`);
         return false;
@@ -479,7 +474,7 @@ async function updatePRState() {
 
     // Find the Asana task for this PR
     const taskId = await findPRTaskByURL(client, pullRequest.html_url, asanaProjectId);
-    
+
     if (!taskId) {
         console.warn(`No Asana task found for PR ${pullRequest.number}`);
         core.setOutput('stateUpdated', false);
@@ -511,23 +506,22 @@ async function updatePRState() {
         const body = {
             data: {
                 custom_fields: {
-                    [customFieldId]: prState
-                }
+                    [customFieldId]: prState,
+                },
             },
         };
         const opts = {};
-        
+
         await client.tasks.updateTask(body, taskId, opts);
-        
+
         // Add a comment about the state change
         const comment = `PR state updated to: ${prState}`;
         await createStory(client, taskId, comment, false);
-        
+
         core.setOutput('asanaTaskId', taskId);
         core.setOutput('prState', prState);
         core.setOutput('stateUpdated', true);
         console.info(`Updated Asana task ${taskId} PR state to: ${prState}`);
-        
     } catch (error) {
         console.error(`Failed to update PR state: ${error.message}`);
         core.setFailed(`Failed to update PR state: ${error.message}`);
@@ -544,7 +538,7 @@ async function createReviewSubtasks() {
 
     // Find the main PR task
     const prTaskId = await findPRTaskByURL(client, pullRequest.html_url, asanaProjectId);
-    
+
     if (!prTaskId) {
         console.warn(`No Asana task found for PR ${pullRequest.number}`);
         core.setOutput('reviewSubtasksCreated', false);
@@ -554,7 +548,7 @@ async function createReviewSubtasks() {
     try {
         // Check if we should only assign to PR author
         const assignPrAuthor = core.getInput('assign-pr-author') === 'true';
-        
+
         if (assignPrAuthor) {
             console.info('ASSIGN_PR_AUTHOR is true - creating single subtask for PR author only');
             await createSingleAuthorSubtask(client, prTaskId, pullRequest, asanaProjectId, asanaSectionId);
@@ -565,8 +559,10 @@ async function createReviewSubtasks() {
         const requestedReviewers = pullRequest.requested_reviewers || [];
         const requestedTeams = pullRequest.requested_teams || [];
         const assignees = pullRequest.assignees || [];
-        
-        console.info(`Found ${requestedReviewers.length} requested reviewers, ${requestedTeams.length} requested teams, and ${assignees.length} assignees`);
+
+        console.info(
+            `Found ${requestedReviewers.length} requested reviewers, ${requestedTeams.length} requested teams, and ${assignees.length} assignees`,
+        );
 
         const createdSubtasks = [];
         const processedUsers = new Set(); // Track users to avoid duplicates
@@ -574,7 +570,7 @@ async function createReviewSubtasks() {
         // Create subtasks for individual reviewers
         for (const reviewer of requestedReviewers) {
             const subtaskName = `Code review for PR #${pullRequest.number}: ${pullRequest.title}`;
-            
+
             // Create subtask description with prelude
             const prelude = `${pullRequest.user.login} requested your code review of ${pullRequest.html_url}.
 
@@ -588,13 +584,13 @@ See parent task for more information
 
 `;
             const subtaskDescription = prelude + (pullRequest.body || 'No description provided');
-            
+
             // Get Asana user ID for reviewer
             let reviewerAsanaId = null;
             if (core.getInput('github-pat')) {
                 reviewerAsanaId = await getAsanaUserID(reviewer.login);
             }
-            
+
             const subtaskId = await createTask(
                 client,
                 subtaskName,
@@ -604,23 +600,23 @@ See parent task for more information
                 ['review', 'pending'],
                 [],
                 reviewerAsanaId || '',
-                ''
+                '',
             );
 
             if (subtaskId && subtaskId !== '0') {
                 // Make it a subtask of the PR task
                 await createSubtask(client, prTaskId, subtaskId);
-                
+
                 // Add comment with reviewer info
                 const comment = `Review requested from @${reviewer.login}`;
                 await createStory(client, subtaskId, comment, true);
-                
+
                 createdSubtasks.push({
                     id: subtaskId,
                     user: reviewer.login,
-                    type: 'reviewer'
+                    type: 'reviewer',
                 });
-                
+
                 processedUsers.add(reviewer.login);
                 console.info(`Created review subtask ${subtaskId} for ${reviewer.login}`);
             }
@@ -634,7 +630,7 @@ See parent task for more information
             }
 
             const subtaskName = `Code review for PR #${pullRequest.number}: ${pullRequest.title}`;
-            
+
             // Create subtask description with prelude
             const prelude = `${pullRequest.user.login} requested your code review of ${pullRequest.html_url}.
 
@@ -648,13 +644,13 @@ See parent task for more information
 
 `;
             const subtaskDescription = prelude + (pullRequest.body || 'No description provided');
-            
+
             // Get Asana user ID for assignee
             let assigneeAsanaId = null;
             if (core.getInput('github-pat')) {
                 assigneeAsanaId = await getAsanaUserID(assignee.login);
             }
-            
+
             const subtaskId = await createTask(
                 client,
                 subtaskName,
@@ -664,23 +660,23 @@ See parent task for more information
                 ['assigned', 'pending'],
                 [],
                 assigneeAsanaId || '',
-                ''
+                '',
             );
 
             if (subtaskId && subtaskId !== '0') {
                 // Make it a subtask of the PR task
                 await createSubtask(client, prTaskId, subtaskId);
-                
+
                 // Add comment with assignee info
                 const comment = `Assigned to @${assignee.login}`;
                 await createStory(client, subtaskId, comment, true);
-                
+
                 createdSubtasks.push({
                     id: subtaskId,
                     user: assignee.login,
-                    type: 'assignee'
+                    type: 'assignee',
                 });
-                
+
                 processedUsers.add(assignee.login);
                 console.info(`Created assignment subtask ${subtaskId} for ${assignee.login}`);
             }
@@ -689,7 +685,7 @@ See parent task for more information
         // Create subtasks for team reviewers
         for (const team of requestedTeams) {
             const subtaskName = `Code review for PR #${pullRequest.number}: ${pullRequest.title}`;
-            
+
             // Create subtask description with prelude
             const prelude = `${pullRequest.user.login} requested your code review of ${pullRequest.html_url}.
 
@@ -703,7 +699,7 @@ See parent task for more information
 
 `;
             const subtaskDescription = prelude + (pullRequest.body || 'No description provided');
-            
+
             const subtaskId = await createTask(
                 client,
                 subtaskName,
@@ -713,23 +709,23 @@ See parent task for more information
                 ['review', 'pending', 'team'],
                 [],
                 '',
-                ''
+                '',
             );
 
             if (subtaskId && subtaskId !== '0') {
                 // Make it a subtask of the PR task
                 await createSubtask(client, prTaskId, subtaskId);
-                
+
                 // Add comment with team info
                 const comment = `Review requested from team @${team.name}`;
                 await createStory(client, subtaskId, comment, true);
-                
+
                 createdSubtasks.push({
                     id: subtaskId,
                     reviewer: team.name,
-                    type: 'team'
+                    type: 'team',
                 });
-                
+
                 console.info(`Created review subtask ${subtaskId} for team ${team.name}`);
             }
         }
@@ -738,7 +734,6 @@ See parent task for more information
         core.setOutput('reviewSubtasksCreated', true);
         core.setOutput('createdSubtasks', JSON.stringify(createdSubtasks));
         console.info(`Created ${createdSubtasks.length} review subtasks for PR ${pullRequest.number}`);
-
     } catch (error) {
         console.error(`Failed to create review subtasks: ${error.message}`);
         core.setFailed(`Failed to create review subtasks: ${error.message}`);
@@ -747,7 +742,7 @@ See parent task for more information
 
 async function createSingleAuthorSubtask(client, prTaskId, pullRequest, asanaProjectId, asanaSectionId) {
     const subtaskName = `Code review for PR #${pullRequest.number}: ${pullRequest.title}`;
-    
+
     // Create subtask description with prelude
     const prelude = `${pullRequest.user.login} requested your code review of ${pullRequest.html_url}.
 
@@ -761,13 +756,13 @@ See parent task for more information
 
 `;
     const subtaskDescription = prelude + (pullRequest.body || 'No description provided');
-    
+
     // Get Asana user ID for PR author
     let authorAsanaId = null;
     if (core.getInput('github-pat')) {
         authorAsanaId = await getAsanaUserID(pullRequest.user.login);
     }
-    
+
     const subtaskId = await createTask(
         client,
         subtaskName,
@@ -777,24 +772,29 @@ See parent task for more information
         ['review', 'author'],
         [],
         authorAsanaId || '',
-        ''
+        '',
     );
 
     if (subtaskId && subtaskId !== '0') {
         // Make it a subtask of the PR task
         await createSubtask(client, prTaskId, subtaskId);
-        
+
         // Add comment with author info
         const comment = `Code review task assigned to PR author @${pullRequest.user.login}`;
         await createStory(client, subtaskId, comment, true);
-        
+
         core.setOutput('asanaTaskId', prTaskId);
         core.setOutput('reviewSubtasksCreated', true);
-        core.setOutput('createdSubtasks', JSON.stringify([{
-            id: subtaskId,
-            user: pullRequest.user.login,
-            type: 'author'
-        }]));
+        core.setOutput(
+            'createdSubtasks',
+            JSON.stringify([
+                {
+                    id: subtaskId,
+                    user: pullRequest.user.login,
+                    type: 'author',
+                },
+            ]),
+        );
         console.info(`Created single author subtask ${subtaskId} for ${pullRequest.user.login}`);
     }
 }
@@ -809,7 +809,7 @@ async function updateReviewSubtaskStatus() {
 
     // Find the main PR task
     const prTaskId = await findPRTaskByURL(client, pullRequest.html_url, asanaProjectId);
-    
+
     if (!prTaskId) {
         console.warn(`No Asana task found for PR ${pullRequest.number}`);
         core.setOutput('reviewStatusUpdated', false);
@@ -819,7 +819,7 @@ async function updateReviewSubtaskStatus() {
     try {
         // Get all subtasks of the PR task
         const subtasks = await getSubtasks(client, prTaskId);
-        
+
         if (!review) {
             console.info('No review data available, checking if PR was merged');
             // Check if PR was merged and resolve all pending subtasks
@@ -833,15 +833,17 @@ async function updateReviewSubtaskStatus() {
 
         const reviewer = review.user.login;
         const reviewState = review.state;
-        
+
         console.info(`Review by ${reviewer}: ${reviewState}`);
 
         // Find the corresponding subtask for this reviewer
         // Since all subtasks have the same name format, we need to find by description
-        const subtask = subtasks.find(task => 
-            task.name.includes(`Code review for PR #${pullRequest.number}:`) &&
-            (task.name.includes(pullRequest.title)) &&
-            (task.notes && task.notes.includes(`@${reviewer}`))
+        const subtask = subtasks.find(
+            (task) =>
+                task.name.includes(`Code review for PR #${pullRequest.number}:`) &&
+                task.name.includes(pullRequest.title) &&
+                task.notes &&
+                task.notes.includes(`@${reviewer}`),
         );
 
         if (!subtask) {
@@ -866,7 +868,6 @@ async function updateReviewSubtaskStatus() {
         core.setOutput('reviewStatusUpdated', true);
         core.setOutput('reviewer', reviewer);
         core.setOutput('reviewState', reviewState);
-
     } catch (error) {
         console.error(`Failed to update review subtask status: ${error.message}`);
         core.setFailed(`Failed to update review subtask status: ${error.message}`);
@@ -920,10 +921,9 @@ async function updateReviewSubtask(client, subtaskId, newName, comment) {
             },
         };
         await client.tasks.updateTask(body, subtaskId, {});
-        
+
         // Add comment
         await createStory(client, subtaskId, comment, false);
-        
     } catch (error) {
         console.error(`Error updating subtask ${subtaskId}: ${error.message}`);
         throw error;
@@ -935,7 +935,7 @@ async function resolveAllPendingSubtasks(client, subtasks, reason) {
 
     const results = [];
     for (const subtask of subtasks) {
-        const id = subtask && (subtask.gid || subtask.id) ? (subtask.gid || subtask.id) : subtask;
+        const id = subtask && (subtask.gid || subtask.id) ? subtask.gid || subtask.id : subtask;
         try {
             if (!id) continue;
 
@@ -1150,35 +1150,43 @@ async function addTaskPRDescription() {
 }
 
 async function getAsanaUserID(ghUsername = null) {
-    const username = ghUsername || core.getInput('github-username') || github.context.payload.pull_request.user.login;
-    const githubPAT = core.getInput('github-pat', { required: true });
-    const githubClient = buildGithubClient(githubPAT);
-    const org = 'duckduckgo';
-    const repo = 'internal-github-asana-utils';
-
-    console.log(`Looking up Asana user ID for ${username}`);
     try {
-        const response = await githubClient
-            .request('GET /repos/{owner}/{repo}/contents/user_map.yml', {
-                owner: org,
-                repo,
-                headers: {
-                    'X-GitHub-Api-Version': '2022-11-28',
-                    Accept: 'application/vnd.github.raw+json',
-                },
-            });
-        
-        const userMap = yaml.load(response.data);
-        if (username in userMap) {
-            console.log(`Found Asana user ID for ${username}: ${userMap[username]}`);
-            return userMap[username];
-        } else {
-            console.warn(`User ${username} not found in user map`);
-            return null;
+        // Get username from input or context, with proper fallback
+        const username = ghUsername || core.getInput('github-username') || 
+            (github.context.payload.pull_request && github.context.payload.pull_request.user.login);
+            
+        if (!username) {
+            throw new Error('No GitHub username provided');
         }
+
+        const githubPAT = core.getInput('github-pat', { required: true });
+        const githubClient = buildGithubClient(githubPAT);
+        const org = 'duckduckgo';
+        const repo = 'internal-github-asana-utils';
+
+        console.log(`Looking up Asana user ID for ${username}`);
+
+        // Fetch user map
+        const response = await githubClient.request('GET /repos/{owner}/{repo}/contents/user_map.yml', {
+            owner: org,
+            repo: repo,
+        });
+
+        const content = Buffer.from(response.data.content, 'base64').toString();
+        const userMap = yaml.load(content);
+
+        if (!userMap || !userMap[username]) {
+            throw new Error(`User ${username} not found in user map`);
+        }
+
+        const asanaUserId = userMap[username];
+        core.setOutput('asanaUserId', asanaUserId);
+        return asanaUserId;
+
     } catch (error) {
-        console.error(`Error looking up Asana user ID for ${username}: ${error.message}`);
-        return null;
+        console.error(`Error in getAsanaUserID: ${error.message}`);
+        core.setFailed(error.message || 'Failed to get Asana user ID');
+        throw error; // Re-throw to ensure promise rejection
     }
 }
 
@@ -1302,9 +1310,9 @@ async function asanaPRSync() {
     const eventName = github.context.eventName;
     const pullRequest = github.context.payload.pull_request;
     const review = github.context.payload.review;
-    
+
     console.info(`GitHub event: ${eventName}`);
-    
+
     if (!pullRequest) {
         core.setFailed('This action only works with pull request events');
         return;
@@ -1327,35 +1335,35 @@ async function asanaPRSync() {
 async function handlePullRequestEvent(pullRequest) {
     const action = github.context.payload.action;
     console.info(`PR action: ${action}`);
-    
+
     switch (action) {
         case 'opened':
             console.info('PR opened - creating task and subtasks');
             await createPRTask();
             await createReviewSubtasks();
             break;
-            
+
         case 'edited':
             console.info('PR edited - updating task');
             await updatePRTask();
             break;
-            
+
         case 'closed':
             console.info('PR closed - updating state and resolving subtasks');
             await updatePRState();
             await updateReviewSubtaskStatus();
             break;
-            
+
         case 'review_requested':
             console.info('Review requested - creating review subtasks');
             await createReviewSubtasks();
             break;
-            
+
         case 'assigned':
             console.info('PR assigned - creating assignment subtasks');
             await createReviewSubtasks();
             break;
-            
+
         default:
             console.info(`PR action ${action} - updating state only`);
             await updatePRState();
