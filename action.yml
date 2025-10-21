@@ -78,6 +78,13 @@ inputs:
     asana-task-custom-fields:
         description: 'Asana task custom fields hash, encoded as a JSON string'
         required: false
+    asana-review-custom-field:
+        description: 'Asana custom field ID for storing PR state (Open, Closed, Draft, Merged, Approved)'
+        required: false
+    assign-pr-author:
+        description: 'If true, creates only one subtask assigned to PR author instead of separate tasks for reviewers/assignees'
+        required: false
+        default: 'false'
 
 runs:
     using: 'node20'
