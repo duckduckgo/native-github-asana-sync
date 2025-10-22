@@ -81,15 +81,21 @@ function findAsanaTasks() {
     return foundTasks;
 }
 
-async function createStory(client, taskId, text, isPinned) {
+async function createStory(client, taskId, text, isPinned, isHtml = false) {
     try {
+        const opts = {};
         const body = {
             data: {
-                text,
                 is_pinned: isPinned,
             },
         };
-        const opts = {};
+
+        if (isHtml) {
+            body.data.html_text = text;
+        } else {
+            body.data.text = text;
+        }
+
         return await client.stories.createStoryForTask(body, taskId, opts);
     } catch (error) {
         console.error('rejecting promise', error);
@@ -491,6 +497,7 @@ async function postCommentAsanaTask() {
     const taskIds = getArrayFromInput(core.getInput('asana-task-id'));
     const taskComment = core.getInput('asana-task-comment');
     const isPinned = core.getInput('asana-task-comment-pinned') === 'true';
+    const isHtml = core.getInput('asana-task-comment-is-html') === 'true';
 
     if (taskIds.length === 0) {
         core.setFailed(`No valid task IDs provided`);
@@ -500,7 +507,7 @@ async function postCommentAsanaTask() {
     let success = true;
     for (const taskId of taskIds) {
         console.info(`Adding comment to Asana task ${taskId}`);
-        const comment = await createStory(client, taskId, taskComment, isPinned);
+        const comment = await createStory(client, taskId, taskComment, isPinned, isHtml);
         if (comment == null) {
             console.error(`Failed to add comment to task ${taskId}`);
             success = false;
