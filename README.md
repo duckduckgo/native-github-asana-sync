@@ -465,6 +465,10 @@ Posts a comment in a given Asana Task
 
 **Required** Is the comment pinned or not.
 
+### `asana-task-comment-is-html`
+
+**Optional** Set to `true` if the comment is in HTML format, `false` for plain text. Defaults to `false` if not provided. When set to `true`, the comment will be posted as HTML, allowing for rich formatting including links, mentions, and other HTML elements supported by Asana.
+
 #### Example Usage
 
 ```yaml
@@ -486,6 +490,18 @@ jobs:
                   asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
                   asana-task-comment: 'PR: ${{ github.event.pull_request.html_url }} has been approved.'
                   asana-task-comment-pinned: true
+                  asana-task-comment-is-html: false
+
+            - name: Add HTML Comment with Mention to Asana Task
+              uses: ./actions
+              id: post-html-comment
+              with:
+                  action: 'post-comment-asana-task'
+                  asana-pat: ${{ secrets.asana_pat }}
+                  asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
+                  asana-task-comment: '<body><a data-asana-gid="USER_GID_HERE"/>@username</a>, please review this <a href="${{ github.event.pull_request.html_url }}">PR</a>.</body>'
+                  asana-task-comment-pinned: false
+                  asana-task-comment-is-html: true
 ```
 
 ### Send a message in Mattermost

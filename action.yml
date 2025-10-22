@@ -27,6 +27,9 @@ inputs:
     asana-task-comment-pinned:
         description: 'Identifies if a comment in an Asana task needs to be pinned or not.'
         required: false
+    asana-task-comment-is-html:
+        description: 'Is the comment in HTML format. [true | false].'
+        required: false
     asana-task-description:
         description: 'Description of the Asana task you want to create.'
         required: false

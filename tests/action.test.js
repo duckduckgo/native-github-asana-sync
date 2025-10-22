@@ -1002,6 +1002,28 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
+        it('should post a pinned HTML comment with user mention', async () => {
+            const htmlCommentWithMention = '<body><a data-asana-gid="123456789"/>@testuser</a>, please review this task.</body>';
+            mockGetInput({
+                action: 'post-comment-asana-task',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'single-task-id',
+                'asana-task-comment': htmlCommentWithMention,
+                'asana-task-comment-pinned': 'true',
+                'asana-task-comment-is-html': 'true',
+            });
+
+            await action();
+
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledWith(
+                { data: { html_text: htmlCommentWithMention, is_pinned: true } },
+                'single-task-id',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
         it('should fail if no task IDs are provided', async () => {
             mockGetInput({
                 action: 'post-comment-asana-task',
