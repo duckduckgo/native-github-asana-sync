@@ -54,7 +54,7 @@ runs:
               asana-task-description: |
                   PR: ${{ github.event.pull_request.html_url }}/files?file-filters[]=.json&file-filters[]=.json5
                   Project Task: ${{ steps.get-task-permalink.outputs.asanaTaskPermalink }}
-              asana-task-custom-fields: '{"1206313756130490":"1206360570982977"}' # Category:Pixels
+              asana-task-custom-fields: '{"1211720829744228":"1211720829744237"}' # Category:Pixels
               action: 'create-asana-task'
 
         - name: Add Privacy Review task to PR
