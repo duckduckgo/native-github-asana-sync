@@ -895,6 +895,82 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setOutput).not.toHaveBeenCalled();
             expect(core.setFailed).toHaveBeenCalledWith(`Can't find an Asana task with the expected prefix`);
         });
+
+        it('should use isTaskInProject when specified project differs from URL project', async () => {
+            mockGetInput({
+                action: 'find-asana-task-id',
+                'trigger-phrase': 'Closes',
+                'asana-project': '9999', // Different from URL project
+            });
+            github.context.payload.issue = undefined;
+            github.context.payload.pull_request.body = 'This PR fixes bugs.\n\nCloses https://app.asana.com/0/1111/2222';
+
+            // Mock task to be in the specified project
+            mockAsanaClient.tasks.getTask.mockResolvedValueOnce({
+                data: {
+                    projects: [{ gid: '9999' }, { gid: '1111' }],
+                },
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.getTask).toHaveBeenCalledWith('2222', { opt_fields: 'projects.gid' });
+            expect(core.setOutput).toHaveBeenCalledWith('asanaTaskId', '2222');
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should fail when isTaskInProject returns false for the only found task', async () => {
+            mockGetInput({
+                action: 'find-asana-task-id',
+                'trigger-phrase': 'Closes',
+                'asana-project': '9999',
+            });
+            github.context.payload.issue = undefined;
+            github.context.payload.pull_request.body = 'This PR fixes bugs.\n\nCloses https://app.asana.com/0/1111/2222';
+
+            // Mock task to not be in the specified project
+            mockAsanaClient.tasks.getTask.mockResolvedValueOnce({
+                data: {
+                    projects: [{ gid: '1111' }], // Only in project 1111, not 9999
+                },
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.getTask).toHaveBeenCalledWith('2222', { opt_fields: 'projects.gid' });
+            expect(core.setOutput).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith(`Can't find an Asana task with the expected prefix`);
+        });
+
+        it('should find first valid task when multiple tasks exist with mixed project membership', async () => {
+            mockGetInput({
+                action: 'find-asana-task-id',
+                'trigger-phrase': 'Closes',
+                'asana-project': '9999',
+            });
+            github.context.payload.issue = undefined;
+            github.context.payload.pull_request.body =
+                'This PR fixes bugs.\n\nCloses https://app.asana.com/0/1111/2222\nCloses https://app.asana.com/0/1111/3333';
+
+            // Mock first task not in project, second task in project
+            mockAsanaClient.tasks.getTask
+                .mockResolvedValueOnce({
+                    data: {
+                        projects: [{ gid: '1111' }], // Task 2222 not in project 9999
+                    },
+                })
+                .mockResolvedValueOnce({
+                    data: {
+                        projects: [{ gid: '9999' }, { gid: '1111' }], // Task 3333 is in project 9999
+                    },
+                });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.getTask).toHaveBeenCalledTimes(2);
+            expect(core.setOutput).toHaveBeenCalledWith('asanaTaskId', '3333'); // Should return first valid task
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
     });
 
     describe('action: find-asana-task-ids', () => {
