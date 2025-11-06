@@ -32,4 +32,5 @@ jobs:
                   asana-project: '1209289464394287' # GHA AoR
 
             - name: Print found task IDs
-              run: echo "Found Asana task IDs: ${{ steps.find-tasks.outputs.asana-task-ids }}"
+              run: |
+                  echo "Found Asana task IDs: ${{steps.find-tasks.outputs.asanaTaskIds}}"
