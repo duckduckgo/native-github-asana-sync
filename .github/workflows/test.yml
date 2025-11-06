@@ -29,7 +29,7 @@ jobs:
               with:
                   action: 'find-asana-task-ids'
                   asana-pat: ${{ secrets.ASANA_PAT_TEST }}
-                  asana-project: '1209289464394287' # GHA AoR
+                  asana-project: '1203268166580279' # GHA AoR
 
             - name: Print found task IDs
               run: |
