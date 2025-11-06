@@ -52,13 +52,10 @@ function getArrayFromInput(input) {
 }
 
 async function isTaskInProject(taskId, projectId) {
-    const client = await buildAsanaClient();
+    const client = buildAsanaClient();
     try {
         const response = await client.tasks.getTask(taskId, { opt_fields: 'projects.gid' });
-        if (response && response.data && response.data.projects) {
-            return response.data.projects.map((project) => project.gid).includes(projectId);
-        }
-        return false;
+        return response?.data?.projects?.some((project) => project.gid === projectId) ?? false;
     } catch (error) {
         console.warn(`Failed to get projects for task ${taskId}:`, error.message);
         return false;
@@ -142,7 +139,7 @@ async function createTaskWithComment(client, name, description, comment, project
 }
 
 async function createIssueTask() {
-    const client = await buildAsanaClient();
+    const client = buildAsanaClient();
     const issue = github.context.payload.issue;
     const asanaProjectId = core.getInput('asana-project', { required: true });
 
@@ -156,7 +153,7 @@ async function createIssueTask() {
 }
 
 async function notifyPRApproved() {
-    const client = await buildAsanaClient();
+    const client = buildAsanaClient();
     const pullRequest = github.context.payload.pull_request;
     const taskComment = `PR: ${pullRequest.html_url} has been approved`;
 
@@ -171,7 +168,7 @@ async function notifyPRApproved() {
 }
 
 async function addTaskToAsanaProject() {
-    const client = await buildAsanaClient();
+    const client = buildAsanaClient();
 
     const projectId = core.getInput('asana-project', { required: true });
     const sectionId = core.getInput('asana-section');
@@ -225,7 +222,7 @@ async function addCommentToPRTask() {
     const taskComment = `PR: ${pullRequest.html_url}`;
     const isPinned = core.getInput('is-pinned') === 'true';
 
-    const client = await buildAsanaClient();
+    const client = buildAsanaClient();
 
     const foundTasks = await findAsanaTasks();
 
@@ -238,7 +235,7 @@ async function addCommentToPRTask() {
 }
 
 async function createPullRequestTask() {
-    const client = await buildAsanaClient();
+    const client = buildAsanaClient();
     const pullRequest = github.context.payload.pull_request;
     const asanaProjectId = core.getInput('asana-project', { required: true });
 
@@ -390,7 +387,7 @@ async function createTask(
 }
 
 async function createAsanaTask() {
-    const client = await buildAsanaClient();
+    const client = buildAsanaClient();
 
     const projectId = core.getInput('asana-project', { required: true });
     const sectionId = core.getInput('asana-section');
@@ -485,7 +482,7 @@ async function findAsanaTaskId() {
 
 async function getTaskPermalink() {
     const asanaTaskId = core.getInput('asana-task-id', { required: true });
-    const client = await buildAsanaClient();
+    const client = buildAsanaClient();
 
     console.log('Getting permalink for task', asanaTaskId);
     try {
@@ -510,7 +507,7 @@ async function findAsanaTaskIds() {
 }
 
 async function postCommentAsanaTask() {
-    const client = await buildAsanaClient();
+    const client = buildAsanaClient();
 
     const taskIds = getArrayFromInput(core.getInput('asana-task-id'));
     const taskComment = core.getInput('asana-task-comment');
@@ -547,7 +544,7 @@ async function markAsanaTaskComplete() {
 }
 
 async function completeAsanaTask(taskId, completed) {
-    const client = await buildAsanaClient();
+    const client = buildAsanaClient();
     const body = {
         data: {
             completed,
