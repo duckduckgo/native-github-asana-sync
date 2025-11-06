@@ -19,3 +19,17 @@ jobs:
             - run: npm run build
             - name: Check for uncommitted build file
               run: git diff --exit-code
+
+    integration-test:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Find Asana task ID(s)
+              id: find-tasks
+              uses: duckduckgo/native-github-asana-sync@nastia/asana-links-fix
+              with:
+                  action: 'find-asana-task-ids'
+                  asana-pat: ${{ secrets.ASANA_PAT_TEST }}
+                  asana-project: '1209289464394287' # GHA AoR
+
+            - name: Print found task IDs
+              run: echo "Found Asana task IDs: ${{ steps.find-tasks.outputs.asana-task-ids }}"
