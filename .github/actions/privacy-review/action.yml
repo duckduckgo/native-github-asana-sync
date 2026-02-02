@@ -53,7 +53,7 @@ runs:
               asana-collaborators: '${{ steps.get-author-asana-id.outputs.asanaUserId }}'
               asana-task-name: 'Privacy Triage: ${{ inputs.team_name }} - ${{ github.event.pull_request.title }}'
               asana-task-description: |
-                  PR: ${{ github.event.pull_request.html_url }}/files?file-filters[]=.json&file-filters[]=.json5
+                  PR: ${{ github.event.pull_request.html_url }}/changes?file-filters[]=.json&file-filters[]=.json5
                   Project Task: ${{ steps.get-task-permalink.outputs.asanaTaskPermalink }}
               asana-task-custom-fields: '{"1211720829744228":"1211720829744237"}' # Category:Pixels
               action: 'create-asana-task'
@@ -76,7 +76,7 @@ runs:
               asana-pat: ${{ inputs.asana_pat }}
               asana-task-id: ${{ steps.create-review-task.outputs.taskId }}
               asana-task-comment: |
-                  <body><a data-asana-gid="${{ steps.get-author-asana-id.outputs.asanaUserId }}"/>, this triage task has been created for <a href="${{ github.event.pull_request.html_url }}">your PR.</a> 
+                  <body><a data-asana-gid="${{ steps.get-author-asana-id.outputs.asanaUserId }}"/>, this triage task has been created for <a href="${{ github.event.pull_request.html_url }}/changes?file-filters[]=.json&file-filters[]=.json5">your PR.</a> 
                   Please review the task description, set the Objective and add any context that could help speed up the review process! </body>
               asana-task-comment-is-html: true
               asana-task-comment-pinned: false
