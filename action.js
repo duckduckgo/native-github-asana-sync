@@ -449,9 +449,10 @@ async function getAsanaUserID() {
     console.log(`Looking up Asana user ID for ${ghUsername}`);
     try {
         await githubClient
-            .request('GET /repos/{owner}/{repo}/contents/user_map.yml', {
+            .request('GET /repos/{owner}/{repo}/contents', {
                 owner: org,
                 repo,
+                path: 'user_map.yml',
                 headers: {
                     'X-GitHub-Api-Version': '2022-11-28',
                     Accept: 'application/vnd.github.raw+json',
