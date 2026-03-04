@@ -1,87 +1,141 @@
-name: 'Github -> Asana Integrations'
-description: 'Common integrations between Github and Asana'
+name: Asana GitHub Sync
+description: Common integrations between GitHub and Asana
+author: asana-github-sync
+
+# Add your action's branding here. This will appear on the GitHub Marketplace.
+branding:
+  icon: check-square
+  color: yellow
+
+# Define your inputs here.
 inputs:
-    action:
-        description: 'Action that will be executed. `create-task` to create a task based on the ISSUE'
-        required: true
-    github-pat:
-        description: 'Github Public Access Token.'
-        required: false
-    asana-pat:
-        description: 'Asana Public Access Token.'
-        required: false
-    asana-project:
-        description: 'Asana Project Id where the Task will be added.'
-        required: false
-    asana-section:
-        description: 'The Section of the Project where the Task will be added to'
-        required: false
-    asana-task-name:
-        description: 'Name of the Asana task you want to create.'
-        required: false
-    asana-task-id:
-        description: 'Id of the Asana task(s) you want to interact with. Can be a single ID or a comma-separated list of IDs.'
-        required: false
-    asana-task-comment:
-        description: 'Comment to be added to an Asana task.'
-    asana-task-comment-pinned:
-        description: 'Identifies if a comment in an Asana task needs to be pinned or not.'
-        required: false
-    asana-task-comment-is-html:
-        description: 'Is the comment in HTML format. [true | false].'
-        required: false
-    asana-task-description:
-        description: 'Description of the Asana task you want to create.'
-        required: false
-    asana-tags:
-        description: 'Comma-separated tags to be added to the Asana task.'
-        required: false
-    asana-collaborators:
-        description: 'Comma-separated Asana user IDs or emails of users to be added as followers.'
-        required: false
-    asana-assignee:
-        description: 'Asana ID of the user to whom the task should be assigned.'
-        required: false
-    trigger-phrase:
-        description: 'Prefix used to identify Asana tasks (URL). If not provided, any Asana URL in the text will be matched.'
-        required: false
-    is-complete:
-        description: 'Set to true to mark the task(s) as complete, false to mark as incomplete. Defaults to false if not provided. [true | false].'
-        required: false
-    is-pinned:
-        description: 'Pin a comment on Asana task(s). [true | false].'
-        required: false
-    github-repository:
-        description: 'Github Repository to check for the latest release.'
-        required: false
-    github-org:
-        description: 'Github Organisation where the repository is hosted, to check for the latest release.'
-        required: false
-    github-username:
-        description: 'Github Username.'
-        required: false
-    pr-review-state:
-        description: 'State of the Pull Request Review [approved | changes_requested | commented].'
-        required: false
-    mattermost-channel-name:
-        description: 'Name of the Mattermost channel to send a message to.'
-        required: false
-    mattermost-message:
-        description: 'Message to send in Mattermost.'
-        required: false
-    mattermost-team-id:
-        description: 'Id of team to use in Mattermost.'
-        required: false
-    mattermost-token:
-        description: 'Token to use for the Mattermost connection.'
-        required: false
-    asana-task-assignee:
-        description: 'GID of user to assign the task to'
-        required: false
-    asana-task-custom-fields:
-        description: 'Asana task custom fields hash, encoded as a JSON string'
-        required: false
+  action:
+    description: Action to execute
+    required: true
+  asana-pat:
+    description: Asana personal access token
+    required: false
+  asana-project:
+    description: Asana project ID
+    required: false
+  asana-section:
+    description: Asana section ID
+    required: false
+  asana-task-name:
+    description: Asana task name
+    required: false
+  asana-task-id:
+    description: Asana task ID or comma-separated task IDs
+    required: false
+  asana-task-description:
+    description: Asana task description
+    required: false
+  asana-task-comment:
+    description: Comment to add to Asana task
+    required: false
+  asana-task-comment-pinned:
+    description: Whether the task comment should be pinned (true or false)
+    required: false
+  asana-task-comment-is-html:
+    description: Whether the task comment is HTML (true or false)
+    required: false
+  asana-tags:
+    description: Comma-separated Asana tag IDs
+    required: false
+  asana-collaborators:
+    description: Comma-separated Asana collaborator IDs
+    required: false
+  asana-assignee:
+    description: Asana assignee user ID
+    required: false
+  asana-task-assignee:
+    description: Asana assignee user ID (alias)
+    required: false
+  asana-task-custom-fields:
+    description: JSON object of custom fields for task creation
+    required: false
+  trigger-phrase:
+    description: Prefix phrase used to locate Asana URLs in PR body
+    required: false
+  is-complete:
+    description: Mark tasks complete when true, incomplete when false
+    required: false
+  is-pinned:
+    description: Pin created comments when true
+    required: false
+  github-pat:
+    description: GitHub personal access token
+    required: false
+  github-repository:
+    description: GitHub repository name for API calls
+    required: false
+  github-org:
+    description: GitHub organization/owner for API calls
+    required: false
+  github-username:
+    description: GitHub username
+    required: false
+  github-pr:
+    description: Pull request number
+    required: false
+  github-token:
+    description: GitHub token for reviewer/assignee updates
+    required: false
+  asana-workspace-id:
+    description: Asana workspace ID for custom-field/task search
+    required: false
+  asana-in-progress-section-id:
+    description: Asana section ID used when review changes are requested
+    required: false
+  randomized-reviewers:
+    description: Comma-separated GitHub users eligible as fallback reviewer
+    required: false
+  assign-pr-author:
+    description: If 'true', the PR task will be assigned to the GitHub PR author
+    required: false
+  no-autoclose-projects:
+    description: Comma-separated Asana project IDs excluded from auto-close
+    required: false
+  skipped-users:
+    description: Comma-separated GitHub usernames to skip for PR sync
+    required: false
+  mattermost-url:
+    description: Mattermost server base URL
+    required: false
+  mattermost-token:
+    description: Mattermost access token
+    required: false
+  mattermost-team-id:
+    description: Mattermost team ID
+    required: false
+  mattermost-channel-name:
+    description: Mattermost channel name
+    required: false
+  mattermost-message:
+    description: Mattermost message content
+    required: false
+
+# Define your outputs here.
+outputs:
+  taskId:
+    description: Asana task ID for created or found task
+  duplicate:
+    description: Whether create-asana-task found an existing task in section
+  asanaTaskId:
+    description: First Asana task ID found or matched
+  asanaTaskIds:
+    description: Comma-separated Asana task IDs found or matched
+  asanaTaskFound:
+    description: Whether any Asana task IDs were found for the action
+  asanaTaskPermalink:
+    description: Asana permalink URL for provided task ID
+  task-url:
+    description: Asana URL for the PR sync task
+  result:
+    description: Result of PR sync action (created, updated, skipped)
+  asanaUserId:
+    description: Asana user ID resolved from GitHub username mapping
 
 runs:
-    using: 'node20'
-    main: 'dist/index.js'
+  using: node24
+  main: dist/index.js

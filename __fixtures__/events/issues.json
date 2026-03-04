@@ -1,0 +1,7 @@
+{
+  "issue": {
+    "title": "Example issue title",
+    "body": "Example issue body",
+    "html_url": "https://github.com/example/repo/issues/1"
+  }
+}

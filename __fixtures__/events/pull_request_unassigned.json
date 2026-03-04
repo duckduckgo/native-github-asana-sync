@@ -1,0 +1,26 @@
+{
+  "action": "unassigned",
+  "assignee": {
+    "login": "reviewer"
+  },
+  "pull_request": {
+    "number": 7732,
+    "title": "GHA: PR Sync Tests",
+    "state": "open",
+    "merged": false,
+    "draft": false,
+    "user": {
+      "login": "author"
+    },
+    "assignees": [],
+    "requested_reviewers": [],
+    "html_url": "https://github.com/duckduckgo/Android/pull/7802",
+    "body": "Task/Issue URL: https://app.asana.com/1/137249556945/project/1174433894299346/task/1213367371192401?focus=true",
+    "base": {
+      "ref": "develop"
+    },
+    "head": {
+      "ref": "feature/example"
+    }
+  }
+}
