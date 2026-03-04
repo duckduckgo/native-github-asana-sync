@@ -63,7 +63,7 @@ flowchart TD
   `[/Users/malmstein/dev/repos/asana-github-sync/.github/prompts/create-release-notes.prompt.md](/Users/malmstein/dev/repos/asana-github-sync/.github/prompts/create-release-notes.prompt.md)`,
   with a dedicated breaking-changes section for major release impact.
 - Run project validation commands (format/lint/tests/bundle as appropriate for
-  this repo) so the release tag points at a verified commit.
+  this repository) so the release tag points at a verified commit.
 - Execute
   `[/Users/malmstein/dev/repos/asana-github-sync/script/release](/Users/malmstein/dev/repos/asana-github-sync/script/release)`:
   provide the new tag when prompted, confirm version alignment, and let it

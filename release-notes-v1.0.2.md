@@ -1,4 +1,4 @@
-## v1.0.2
+# v1.0.2
 
 Patch release focused on PR sync assignee controls and local test coverage.
 
@@ -13,7 +13,7 @@ Patch release focused on PR sync assignee controls and local test coverage.
 
 ## Internal Updates
 
-- Updated action metadata and README documentation for the new
+- Updated action metadata and readme documentation for the new
   `assign-pr-author` option.
 - Added/updated unit and local-action test coverage for assignee selection
   behavior.
@@ -27,7 +27,7 @@ Patch release focused on PR sync assignee controls and local test coverage.
 
 1. Set `assign-pr-author: 'true'` in `pr-asana-sync` workflows to prefer PR
    author assignment.
-2. Ensure the PR author login is present in
+1. Ensure the PR author login is present in
    `duckduckgo/internal-github-asana-utils/user_map.yml` so Asana assignment can
    be resolved.
-3. Keep using `v1` for major tracking or pin `v1.0.2` for an immutable version.
+1. Keep using `v1` for major tracking or pin `v1.0.2` for an immutable version.

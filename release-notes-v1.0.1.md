@@ -1,4 +1,4 @@
-## v1.0.1
+# v1.0.1
 
 Patch release with incremental improvements to user mapping and pull request
 sync handling.
@@ -26,7 +26,7 @@ sync handling.
 
 1. Continue pinning workflows to `v1` for major tracking or `v1.0.1` for
    immutable pinning.
-2. Ensure the `github-pat` used with `get-asana-user-id` can access
+1. Ensure the `github-pat` used with `get-asana-user-id` can access
    `duckduckgo/internal-github-asana-utils/user_map.yml`.
-3. If you rely on PR assignee/review sync behavior, validate against your
+1. If you rely on PR assignee/review sync behavior, validate against your
    repository event configuration after upgrading.

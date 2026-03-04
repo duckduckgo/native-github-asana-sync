@@ -4,9 +4,10 @@
 MD004:
   style: dash
 
-# Disable line length for tables
+# Disable line length for tables and code blocks
 MD013:
   tables: false
+  code_blocks: false
 
 # Ordered list item prefix
 MD029:
