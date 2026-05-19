@@ -15,17 +15,6 @@ inputs:
     github_pat:
         required: true
 
-outputs:
-    triage_task_id:
-        description: 'GID of the Privacy Triage Asana task created by this action.'
-        value: ${{ steps.create-review-task.outputs.taskId }}
-    triage_task_permalink:
-        description: 'Permalink URL of the Privacy Triage Asana task created by this action.'
-        value: https://app.asana.com/0/69071770703008/${{ steps.create-review-task.outputs.taskId }}
-    original_task_id:
-        description: 'GID of the original product task referenced in the PR description (matched via the trigger-phrase regex), or empty if none found.'
-        value: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
-
 runs:
     using: 'composite'
     steps:
