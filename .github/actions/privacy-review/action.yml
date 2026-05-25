@@ -81,3 +81,28 @@ runs:
               asana-task-comment-is-html: true
               asana-task-comment-pinned: false
               action: 'post-comment-asana-task'
+
+        # Requirements on the github_pat:
+        #   - actions: write on duckduckgo/privacy-review-automation
+        # E2E-TEST REF: pinned to the in-flight classifier branch with the
+        # privacy_triage_task_id input + dual-link Step 5. Revert to 'main'
+        # before merging this PR.
+        - name: Dispatch AI Privacy Review classifier
+          if: ${{ steps.create-review-task.outputs.taskId != '' }}
+          uses: actions/github-script@v7
+          env:
+              PR_URL: ${{ github.event.pull_request.html_url }}
+              TRIAGE_TASK_ID: ${{ steps.create-review-task.outputs.taskId }}
+          with:
+              github-token: ${{ inputs.github_pat }}
+              script: |
+                  await github.rest.actions.createWorkflowDispatch({
+                    owner: 'duckduckgo',
+                    repo: 'privacy-review-automation',
+                    workflow_id: 'privacy-review-classifier.lock.yml',
+                    ref: 'la/triage-id-link',
+                    inputs: {
+                      pr_url: process.env.PR_URL,
+                      privacy_triage_task_id: process.env.TRIAGE_TASK_ID,
+                    },
+                  });
