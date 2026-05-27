@@ -14,6 +14,8 @@ inputs:
         required: true
     github_pat:
         required: true
+    dispatch_pat:
+        required: false
 
 runs:
     using: 'composite'
@@ -82,8 +84,11 @@ runs:
               asana-task-comment-pinned: false
               action: 'post-comment-asana-task'
 
-        # Requirements on the github_pat:
-        #   - actions: write on duckduckgo/privacy-review-automation
+        # Token requirements for this step:
+        #   actions:write on duckduckgo/privacy-review-automation.
+        # Uses dispatch_pat when set so callers can pass a separate token from
+        # github_pat (which only needs read on duckduckgo/internal-github-asana-utils).
+        # Falls back to github_pat for backward compatibility.
         - name: Dispatch AI Privacy Review classifier
           if: ${{ steps.create-review-task.outputs.taskId != '' }}
           uses: actions/github-script@v7
@@ -91,7 +96,7 @@ runs:
               PR_URL: ${{ github.event.pull_request.html_url }}
               TRIAGE_TASK_ID: ${{ steps.create-review-task.outputs.taskId }}
           with:
-              github-token: ${{ inputs.github_pat }}
+              github-token: ${{ inputs.dispatch_pat || inputs.github_pat }}
               script: |
                   await github.rest.actions.createWorkflowDispatch({
                     owner: 'duckduckgo',
