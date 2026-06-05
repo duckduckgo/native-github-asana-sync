@@ -35,7 +35,7 @@ This action integrates asana with github.
 - `send-mattermost-message` to send a message to a channel in Mattermost
 - `get-asana-task-permalink` to get the permalink for a given Asana Task ID
 - `mark-asana-task-complete` to mark an Asana task as complete or incomplete
-- `add-asana-tags-from-diff` to add Asana tags to the PR's linked task(s) based on the files changed in the PR
+- `set-asana-custom-fields-from-diff` to set Asana custom field values on the PR's linked task(s) based on the files changed in the PR
 
 ### Create Asana task from Github Issue
 
@@ -622,9 +622,11 @@ jobs:
                   action: 'mark-asana-task-complete'
 ```
 
-### Add Asana tags based on the PR diff
+### Set Asana custom fields based on the PR diff
 
-Looks for Asana task(s) linked in the PR description and adds Asana tags to them based on which files the Pull Request changed. The mapping from file paths to tag GIDs is provided inline via the `tag-map` input, so no extra Asana API calls are needed to resolve tag names — you supply tag GIDs directly.
+Looks for Asana task(s) linked in the PR description and sets custom field values on them based on which files the Pull Request changed. The mapping from file paths to custom field values is provided inline via the `custom-field-map` input, so no extra Asana API calls are needed to resolve names — you supply field GIDs (and, for enum fields, option GIDs) directly.
+
+This is typically run as a step immediately before `notify-pr-merged` in the same job, so a required custom field is guaranteed to be set before the task is completed (avoiding Asana's "field not set" reminder on closed tasks).
 
 ### `asana-pat`
 
@@ -650,18 +652,19 @@ Looks for Asana task(s) linked in the PR description and adds Asana tags to them
 
 **Optional** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/. If not provided, any Asana URL in the text will be matched.
 
-### `tag-map`
+### `custom-field-map`
 
-**Required** JSON string mapping file-path glob patterns to Asana tag GIDs.
+**Required** JSON string mapping file-path glob patterns to an Asana `custom_fields` hash (field GID -> value).
 
 - A changed file is matched against each pattern using glob syntax: `*` matches within a single path segment, `**` matches across segments, and `?` matches a single non-`/` character. Exact paths also work.
-- A file may match multiple patterns, in which case all matching tags are added.
-- The special key `"*"` is a fallback tag applied to any changed file that did not match any other pattern.
-- All matching tag GIDs across all changed files are de-duplicated and applied to every linked task.
+- For enum (dropdown) fields the value is the enum option's GID; for text fields it is a string; for number fields a number.
+- Because a custom field holds a single value, specific patterns are applied in **declaration order** and the first entry to set a given field GID wins (so list more specific rules first).
+- The special key `"*"` is a fallback that only fills in fields that no specific pattern set. Keep a fallback if you want every linked task to always have the field set.
+- The resolved field values are merged and applied to every linked task in a single update.
 
 #### How timing works
 
-Steps within a single workflow job run sequentially in the order listed, so placing this step before a `notify-pr-merged` step in the same job guarantees tags are applied before the task is completed. Ordering is only non-deterministic if the tag step and the complete step live in separate workflows triggered by the same event (they would run in parallel). Note that completing an Asana task does not remove its tags, so tags can also be added to an already-completed task.
+Steps within a single workflow job run sequentially in the order listed, so placing this step before a `notify-pr-merged` step in the same job guarantees the field is set before the task is completed. Ordering is only non-deterministic if the two steps live in separate workflows triggered by the same event (they would run in parallel). If setting the field fails, that step fails and — by GitHub's default behaviour — the subsequent completion step is skipped, so a task is not closed without its field set.
 
 #### Example Usage
 
@@ -675,20 +678,22 @@ jobs:
         if: github.event.pull_request.merged
         runs-on: ubuntu-latest
         steps:
-            - name: Tag linked Asana tasks based on the diff
+            - name: Set Asana custom fields based on the diff
               uses: duckduckgo/native-github-asana-sync@v1.1
               with:
-                  action: 'add-asana-tags-from-diff'
+                  action: 'set-asana-custom-fields-from-diff'
                   asana-pat: ${{ secrets.asana_pat }}
                   github-pat: ${{ secrets.github_pat }}
                   github-org: ${{ github.repository_owner }}
                   github-repository: ${{ github.event.repository.name }}
                   github-pr: ${{ github.event.pull_request.number }}
                   trigger-phrase: 'Task/Issue URL:'
-                  tag-map: >-
+                  # field GID 1201111111111111 -> option A when feature-flags.json
+                  # changed, option B for any other change
+                  custom-field-map: >-
                       {
-                        "config/feature-flags.json": "1201111111111111",
-                        "*": "1202222222222222"
+                        "config/feature-flags.json": { "1201111111111111": "1209999999999991" },
+                        "*": { "1201111111111111": "1209999999999992" }
                       }
 
             - name: Complete linked Asana tasks

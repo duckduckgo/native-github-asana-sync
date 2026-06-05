@@ -436,25 +436,36 @@ function matchesGlob(pattern, filePath) {
     return globToRegExp(pattern).test(filePath);
 }
 
-function resolveTagsForFiles(tagMap, changedFiles) {
-    const fallbackTag = tagMap['*'];
-    const patterns = Object.entries(tagMap).filter(([pattern]) => pattern !== '*');
-    const tagGids = new Set();
+function resolveCustomFieldsForFiles(fieldMap, changedFiles) {
+    const fallbackFields = fieldMap['*'];
+    const patterns = Object.entries(fieldMap).filter(([pattern]) => pattern !== '*');
+    const resolved = {};
 
-    for (const file of changedFiles) {
-        let matched = false;
-        for (const [pattern, tagGid] of patterns) {
-            if (matchesGlob(pattern, file)) {
-                tagGids.add(tagGid);
-                matched = true;
-            }
+    // Specific patterns are evaluated in declaration order; the first entry to
+    // set a given field GID wins, so list more specific rules first. A field can
+    // only hold one value, hence "first wins" rather than the union used for tags.
+    for (const [pattern, fields] of patterns) {
+        const anyFileMatches = changedFiles.some((file) => matchesGlob(pattern, file));
+        if (!anyFileMatches) {
+            continue;
         }
-        if (!matched && fallbackTag) {
-            tagGids.add(fallbackTag);
+        for (const [fieldGid, value] of Object.entries(fields)) {
+            if (!(fieldGid in resolved)) {
+                resolved[fieldGid] = value;
+            }
         }
     }
 
-    return [...tagGids];
+    // The "*" fallback only fills in fields that no specific pattern set.
+    if (fallbackFields) {
+        for (const [fieldGid, value] of Object.entries(fallbackFields)) {
+            if (!(fieldGid in resolved)) {
+                resolved[fieldGid] = value;
+            }
+        }
+    }
+
+    return resolved;
 }
 
 async function getChangedFiles(githubClient, owner, repo, pullNumber) {
@@ -484,51 +495,49 @@ async function getChangedFiles(githubClient, owner, repo, pullNumber) {
     return files;
 }
 
-async function addTagToTask(client, taskId, tagGid) {
+async function updateTaskCustomFields(client, taskId, customFields) {
     try {
-        const body = { data: { tag: tagGid } };
-        return await client.tasks.addTagForTask(body, taskId);
+        const body = { data: { custom_fields: customFields } };
+        return await client.tasks.updateTask(body, taskId, {});
     } catch (error) {
-        console.error(`Failed to add tag ${tagGid} to task ${taskId}:`, JSON.stringify(error));
-        core.setFailed(`Failed to add tag ${tagGid} to task ${taskId}`);
+        console.error(`Failed to set custom fields on task ${taskId}:`, JSON.stringify(error));
+        core.setFailed(`Failed to set custom fields on task ${taskId}`);
     }
 }
 
-async function addTagsFromDiff() {
+async function setCustomFieldsFromDiff() {
     const githubPAT = core.getInput('github-pat', { required: true });
     const githubClient = buildGithubClient(githubPAT);
     const org = core.getInput('github-org', { required: true });
     const repo = core.getInput('github-repository', { required: true });
     const pullNumber = core.getInput('github-pr', { required: true });
-    const tagMapInput = core.getInput('tag-map', { required: true });
+    const fieldMapInput = core.getInput('custom-field-map', { required: true });
 
-    let tagMap;
+    let fieldMap;
     try {
-        tagMap = JSON.parse(tagMapInput);
+        fieldMap = JSON.parse(fieldMapInput);
     } catch (error) {
-        core.setFailed(`Invalid tag-map JSON: ${tagMapInput}`);
+        core.setFailed(`Invalid custom-field-map JSON: ${fieldMapInput}`);
         return;
     }
 
     const changedFiles = await getChangedFiles(githubClient, org, repo, pullNumber);
     console.info(`PR #${pullNumber} changed ${changedFiles.length} file(s)`);
 
-    const tagGids = resolveTagsForFiles(tagMap, changedFiles);
-    if (tagGids.length === 0) {
-        console.info('No tags matched the changed files; nothing to do');
+    const customFields = resolveCustomFieldsForFiles(fieldMap, changedFiles);
+    if (Object.keys(customFields).length === 0) {
+        console.info('No custom fields matched the changed files; nothing to do');
         return;
     }
-    console.info('Applying tags:', tagGids.join(','));
+    console.info('Setting custom fields:', JSON.stringify(customFields));
 
     const client = buildAsanaClient();
     const foundTasks = await findAsanaTasks();
 
     const taskIds = [];
     for (const taskId of foundTasks) {
-        for (const tagGid of tagGids) {
-            console.info(`Adding tag ${tagGid} to task ${taskId}`);
-            await addTagToTask(client, taskId, tagGid);
-        }
+        console.info(`Setting custom fields on task ${taskId}`);
+        await updateTaskCustomFields(client, taskId, customFields);
         taskIds.push(taskId);
     }
     return taskIds;
@@ -765,8 +774,8 @@ async function action() {
             await addTaskPRDescription();
             break;
         }
-        case 'add-asana-tags-from-diff': {
-            await addTagsFromDiff();
+        case 'set-asana-custom-fields-from-diff': {
+            await setCustomFieldsFromDiff();
             break;
         }
         case 'get-asana-user-id': {

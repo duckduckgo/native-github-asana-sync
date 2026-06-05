@@ -63,8 +63,8 @@ inputs:
     github-pr:
         description: 'Github Pull Request number.'
         required: false
-    tag-map:
-        description: 'JSON string mapping file-path glob patterns to Asana tag GIDs, used by add-asana-tags-from-diff. A file matches a pattern using glob syntax (* matches within a path segment, ** across segments). The special key "*" is a fallback tag applied to any changed file that matched no other pattern. i.e. {"config/feature-flags.json":"1201111111111111","*":"1202222222222222"}.'
+    custom-field-map:
+        description: 'JSON string mapping file-path glob patterns to an Asana custom_fields hash (field GID -> value), used by set-asana-custom-fields-from-diff. A file matches a pattern using glob syntax (* within a path segment, ** across segments). Specific patterns are applied in declaration order and the first to set a given field GID wins; the special key "*" is a fallback that only fills in fields no specific pattern set. i.e. {"config/feature-flags.json":{"1201111111111111":"OPTION_GID_A"},"*":{"1201111111111111":"OPTION_GID_B"}}.'
         required: false
     pr-review-state:
         description: 'State of the Pull Request Review [approved | changes_requested | commented].'

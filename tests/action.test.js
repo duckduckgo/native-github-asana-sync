@@ -102,7 +102,6 @@ const mockAsanaClient = {
         updateTask: jest.fn().mockResolvedValue({}),
         getTasksForSection: jest.fn().mockResolvedValue({ data: [] }), // Default: no existing tasks
         getTask: jest.fn().mockResolvedValue(mockAsanaTask),
-        addTagForTask: jest.fn().mockResolvedValue({}),
     },
     sections: {
         addTaskForSection: jest.fn().mockResolvedValue({}),
@@ -1314,9 +1313,12 @@ describe('GitHub Asana Sync Action', () => {
         });
     });
 
-    describe('action: add-asana-tags-from-diff', () => {
+    describe('action: set-asana-custom-fields-from-diff', () => {
+        const fieldGid = '1201111111111111';
+        const optionA = '1209999999999991';
+        const optionB = '1209999999999992';
         const baseInputs = {
-            action: 'add-asana-tags-from-diff',
+            action: 'set-asana-custom-fields-from-diff',
             'asana-pat': 'mock-asana-pat',
             'github-pat': 'mock-github-pat',
             'github-org': 'test-owner',
@@ -1325,10 +1327,13 @@ describe('GitHub Asana Sync Action', () => {
             'trigger-phrase': 'Closes', // resolves to task 2222 from the PR body
         };
 
-        it('should add the matched tag and the fallback tag based on changed files', async () => {
+        it('should set the specific field value when the matching file changed (first match wins)', async () => {
             mockGetInput({
                 ...baseInputs,
-                'tag-map': JSON.stringify({ 'config/feature-flags.json': 'tagA', '*': 'tagB' }),
+                'custom-field-map': JSON.stringify({
+                    'config/feature-flags.json': { [fieldGid]: optionA },
+                    '*': { [fieldGid]: optionB },
+                }),
             });
             github.context.payload.issue = undefined;
             mockOctokitRequest.mockResolvedValueOnce({
@@ -1341,16 +1346,19 @@ describe('GitHub Asana Sync Action', () => {
                 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files',
                 expect.objectContaining({ owner: 'test-owner', repo: 'test-repo', pull_number: '123' }),
             );
-            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledTimes(2);
-            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledWith({ data: { tag: 'tagA' } }, '2222');
-            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledWith({ data: { tag: 'tagB' } }, '2222');
+            // Specific pattern wins over the fallback for the same field GID
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith({ data: { custom_fields: { [fieldGid]: optionA } } }, '2222', {});
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
-        it('should apply only the fallback tag when no specific pattern matches', async () => {
+        it('should apply the fallback field value when no specific pattern matches', async () => {
             mockGetInput({
                 ...baseInputs,
-                'tag-map': JSON.stringify({ 'config/feature-flags.json': 'tagA', '*': 'tagB' }),
+                'custom-field-map': JSON.stringify({
+                    'config/feature-flags.json': { [fieldGid]: optionA },
+                    '*': { [fieldGid]: optionB },
+                }),
             });
             github.context.payload.issue = undefined;
             mockOctokitRequest.mockResolvedValueOnce({
@@ -1359,15 +1367,19 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledTimes(1);
-            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledWith({ data: { tag: 'tagB' } }, '2222');
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith({ data: { custom_fields: { [fieldGid]: optionB } } }, '2222', {});
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
-        it('should support glob patterns spanning path segments', async () => {
+        it('should merge a specific field and a different fallback field using glob matching', async () => {
+            const otherField = '1203333333333333';
             mockGetInput({
                 ...baseInputs,
-                'tag-map': JSON.stringify({ 'src/**': 'tagSrc', '**/*.sql': 'tagSql' }),
+                'custom-field-map': JSON.stringify({
+                    'src/**': { [fieldGid]: optionA },
+                    '*': { [otherField]: 'fallback-value' },
+                }),
             });
             github.context.payload.issue = undefined;
             mockOctokitRequest.mockResolvedValueOnce({
@@ -1376,17 +1388,20 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // file matches both src/** and **/*.sql -> both tags added once
-            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledTimes(2);
-            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledWith({ data: { tag: 'tagSrc' } }, '2222');
-            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledWith({ data: { tag: 'tagSql' } }, '2222');
+            // src/** sets fieldGid; fallback fills the (different) otherField
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                { data: { custom_fields: { [fieldGid]: optionA, [otherField]: 'fallback-value' } } },
+                '2222',
+                {},
+            );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
-        it('should do nothing when no tags match and no fallback is provided', async () => {
+        it('should do nothing when no pattern matches and no fallback is provided', async () => {
             mockGetInput({
                 ...baseInputs,
-                'tag-map': JSON.stringify({ 'config/feature-flags.json': 'tagA' }),
+                'custom-field-map': JSON.stringify({ 'config/feature-flags.json': { [fieldGid]: optionA } }),
             });
             github.context.payload.issue = undefined;
             mockOctokitRequest.mockResolvedValueOnce({
@@ -1395,21 +1410,21 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            expect(mockAsanaClient.tasks.addTagForTask).not.toHaveBeenCalled();
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
-        it('should fail on invalid tag-map JSON', async () => {
+        it('should fail on invalid custom-field-map JSON', async () => {
             mockGetInput({
                 ...baseInputs,
-                'tag-map': '{not valid json',
+                'custom-field-map': '{not valid json',
             });
             github.context.payload.issue = undefined;
 
             await action();
 
-            expect(mockAsanaClient.tasks.addTagForTask).not.toHaveBeenCalled();
-            expect(core.setFailed).toHaveBeenCalledWith('Invalid tag-map JSON: {not valid json');
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith('Invalid custom-field-map JSON: {not valid json');
         });
     });
 
