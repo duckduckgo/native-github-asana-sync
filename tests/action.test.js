@@ -1372,12 +1372,12 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
-        it('should merge a specific field and a different fallback field using glob matching', async () => {
+        it('should merge a prefix-matched field and a different fallback field', async () => {
             const otherField = '1203333333333333';
             mockGetInput({
                 ...baseInputs,
                 'custom-field-map': JSON.stringify({
-                    'src/**': { [fieldGid]: optionA },
+                    'src/*': { [fieldGid]: optionA },
                     '*': { [otherField]: 'fallback-value' },
                 }),
             });
@@ -1388,13 +1388,30 @@ describe('GitHub Asana Sync Action', () => {
 
             await action();
 
-            // src/** sets fieldGid; fallback fills the (different) otherField
+            // src/* prefix matches the nested file and sets fieldGid; fallback fills the (different) otherField
             expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
             expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
                 { data: { custom_fields: { [fieldGid]: optionA, [otherField]: 'fallback-value' } } },
                 '2222',
                 {},
             );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should match a suffix pattern with a leading star', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'custom-field-map': JSON.stringify({ '*.sql': { [fieldGid]: optionA } }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'db/migrations/001.sql' }],
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith({ data: { custom_fields: { [fieldGid]: optionA } } }, '2222', {});
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 

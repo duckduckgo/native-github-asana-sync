@@ -407,33 +407,32 @@ async function createAsanaTask() {
     return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee, customFields);
 }
 
-function globToRegExp(glob) {
-    let regex = '';
-    for (let i = 0; i < glob.length; i++) {
-        const char = glob[i];
-        if (char === '*') {
-            if (glob[i + 1] === '*') {
-                regex += '.*';
-                i++;
-            } else {
-                regex += '[^/]*';
-            }
-        } else if (char === '?') {
-            regex += '[^/]';
-        } else if ('.+^${}()|[]\\'.includes(char)) {
-            regex += `\\${char}`;
-        } else {
-            regex += char;
-        }
-    }
-    return new RegExp(`^${regex}$`);
-}
-
-function matchesGlob(pattern, filePath) {
+function matchesPattern(pattern, filePath) {
     if (pattern === filePath) {
         return true;
     }
-    return globToRegExp(pattern).test(filePath);
+
+    const hasLeadingStar = pattern.startsWith('*');
+    const hasTrailingStar = pattern.endsWith('*');
+
+    let literal = pattern;
+    while (literal.startsWith('*')) {
+        literal = literal.slice(1);
+    }
+    while (literal.endsWith('*')) {
+        literal = literal.slice(0, -1);
+    }
+
+    if (hasLeadingStar && hasTrailingStar) {
+        return literal === '' || filePath.includes(literal);
+    }
+    if (hasLeadingStar) {
+        return filePath.endsWith(literal);
+    }
+    if (hasTrailingStar) {
+        return filePath.startsWith(literal);
+    }
+    return false;
 }
 
 function resolveCustomFieldsForFiles(fieldMap, changedFiles) {
@@ -442,7 +441,7 @@ function resolveCustomFieldsForFiles(fieldMap, changedFiles) {
     const resolved = {};
 
     for (const [pattern, fields] of patterns) {
-        const anyFileMatches = changedFiles.some((file) => matchesGlob(pattern, file));
+        const anyFileMatches = changedFiles.some((file) => matchesPattern(pattern, file));
         if (!anyFileMatches) {
             continue;
         }

@@ -654,7 +654,7 @@ Looks for Asana task(s) linked in the PR description and sets custom field value
 
 **Required** JSON string mapping file-path glob patterns to an Asana `custom_fields` hash (field GID -> value).
 
-- A changed file is matched against each pattern using glob syntax: `*` matches within a single path segment, `**` matches across segments, and `?` matches a single non-`/` character. Exact paths also work.
+- Each pattern is matched against changed file paths by simple string matching: an exact path, a trailing `*` for a prefix match (e.g. `features/*` matches any file under `features/`), a leading `*` for a suffix match (e.g. `*.json` matches any file ending in `.json`), or both for a contains match (e.g. `*content-blocking*`).
 - For enum (dropdown) fields the value is the enum option's GID; for text fields it is a string; for number fields a number.
 - Because a custom field holds a single value, specific patterns are applied in **declaration order** and the first entry to set a given field GID wins (so list more specific rules first).
 - The special key `"*"` is a fallback that only fills in fields that no specific pattern set. Keep a fallback if you want every linked task to always have the field set.
