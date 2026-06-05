@@ -624,9 +624,7 @@ jobs:
 
 ### Set Asana custom fields based on the PR diff
 
-Looks for Asana task(s) linked in the PR description and sets custom field values on them based on which files the Pull Request changed. The mapping from file paths to custom field values is provided inline via the `custom-field-map` input, so no extra Asana API calls are needed to resolve names — you supply field GIDs (and, for enum fields, option GIDs) directly.
-
-This is typically run as a step immediately before `notify-pr-merged` in the same job, so a required custom field is guaranteed to be set before the task is completed (avoiding Asana's "field not set" reminder on closed tasks).
+Looks for Asana task(s) linked in the PR description and sets custom field values on them based on which files the Pull Request changed.
 
 ### `asana-pat`
 
@@ -662,10 +660,6 @@ This is typically run as a step immediately before `notify-pr-merged` in the sam
 - The special key `"*"` is a fallback that only fills in fields that no specific pattern set. Keep a fallback if you want every linked task to always have the field set.
 - The resolved field values are merged and applied to every linked task in a single update.
 
-#### How timing works
-
-Steps within a single workflow job run sequentially in the order listed, so placing this step before a `notify-pr-merged` step in the same job guarantees the field is set before the task is completed. Ordering is only non-deterministic if the two steps live in separate workflows triggered by the same event (they would run in parallel). If setting the field fails, that step fails and — by GitHub's default behaviour — the subsequent completion step is skipped, so a task is not closed without its field set.
-
 #### Example Usage
 
 ```yaml
@@ -688,12 +682,11 @@ jobs:
                   github-repository: ${{ github.event.repository.name }}
                   github-pr: ${{ github.event.pull_request.number }}
                   trigger-phrase: 'Task/Issue URL:'
-                  # field GID 1201111111111111 -> option A when feature-flags.json
-                  # changed, option B for any other change
                   custom-field-map: >-
                       {
-                        "config/feature-flags.json": { "1201111111111111": "1209999999999991" },
-                        "*": { "1201111111111111": "1209999999999992" }
+                        "features/unprotected-temporary.json": { "1201111111111111": "1209999999999991" },
+                        "feature/content-blocking.json": { "1201111111111111": "1209999999999992" },
+                        "*": { "1201111111111111": "1209999999999993" }
                       }
 
             - name: Complete linked Asana tasks
