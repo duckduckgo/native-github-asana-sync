@@ -435,9 +435,6 @@ function resolveCustomFieldsForFiles(fieldMap, changedFiles) {
     const patterns = Object.entries(fieldMap).filter(([pattern]) => pattern !== '*');
     const resolved = {};
 
-    // Specific patterns are evaluated in declaration order; the first entry to
-    // set a given field GID wins, so list more specific rules first. A field can
-    // only hold one value, hence "first wins" rather than the union used for tags.
     for (const [pattern, fields] of patterns) {
         const anyFileMatches = changedFiles.some((file) => matchesGlob(pattern, file));
         if (!anyFileMatches) {

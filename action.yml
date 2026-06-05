@@ -64,7 +64,7 @@ inputs:
         description: 'Github Pull Request number.'
         required: false
     custom-field-map:
-        description: 'JSON string mapping file-path glob patterns to an Asana custom_fields hash (field GID -> value), used by set-asana-custom-fields-from-diff. A file matches a pattern using glob syntax (* within a path segment, ** across segments). Specific patterns are applied in declaration order and the first to set a given field GID wins; the special key "*" is a fallback that only fills in fields no specific pattern set. i.e. {"config/feature-flags.json":{"1201111111111111":"OPTION_GID_A"},"*":{"1201111111111111":"OPTION_GID_B"}}.'
+        description: 'JSON mapping file-path glob patterns to an Asana custom_fields hash (field GID -> value).'
         required: false
     pr-review-state:
         description: 'State of the Pull Request Review [approved | changes_requested | commented].'

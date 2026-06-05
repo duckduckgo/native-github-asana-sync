@@ -658,7 +658,6 @@ Looks for Asana task(s) linked in the PR description and sets custom field value
 - For enum (dropdown) fields the value is the enum option's GID; for text fields it is a string; for number fields a number.
 - Because a custom field holds a single value, specific patterns are applied in **declaration order** and the first entry to set a given field GID wins (so list more specific rules first).
 - The special key `"*"` is a fallback that only fills in fields that no specific pattern set. Keep a fallback if you want every linked task to always have the field set.
-- The resolved field values are merged and applied to every linked task in a single update.
 
 #### Example Usage
 
