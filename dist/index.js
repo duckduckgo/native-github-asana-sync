@@ -407,6 +407,133 @@ async function createAsanaTask() {
     return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee, customFields);
 }
 
+function globToRegExp(glob) {
+    let regex = '';
+    for (let i = 0; i < glob.length; i++) {
+        const char = glob[i];
+        if (char === '*') {
+            if (glob[i + 1] === '*') {
+                regex += '.*';
+                i++;
+            } else {
+                regex += '[^/]*';
+            }
+        } else if (char === '?') {
+            regex += '[^/]';
+        } else if ('.+^${}()|[]\\'.includes(char)) {
+            regex += `\\${char}`;
+        } else {
+            regex += char;
+        }
+    }
+    return new RegExp(`^${regex}$`);
+}
+
+function matchesGlob(pattern, filePath) {
+    if (pattern === filePath) {
+        return true;
+    }
+    return globToRegExp(pattern).test(filePath);
+}
+
+function resolveTagsForFiles(tagMap, changedFiles) {
+    const fallbackTag = tagMap['*'];
+    const patterns = Object.entries(tagMap).filter(([pattern]) => pattern !== '*');
+    const tagGids = new Set();
+
+    for (const file of changedFiles) {
+        let matched = false;
+        for (const [pattern, tagGid] of patterns) {
+            if (matchesGlob(pattern, file)) {
+                tagGids.add(tagGid);
+                matched = true;
+            }
+        }
+        if (!matched && fallbackTag) {
+            tagGids.add(fallbackTag);
+        }
+    }
+
+    return [...tagGids];
+}
+
+async function getChangedFiles(githubClient, owner, repo, pullNumber) {
+    const files = [];
+    const perPage = 100;
+    let page = 1;
+
+    while (true) {
+        const response = await githubClient.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', {
+            owner,
+            repo,
+            pull_number: pullNumber,
+            per_page: perPage,
+            page,
+            headers: {
+                'X-GitHub-Api-Version': '2022-11-28',
+            },
+        });
+        const data = response.data || [];
+        files.push(...data.map((file) => file.filename));
+        if (data.length < perPage) {
+            break;
+        }
+        page++;
+    }
+
+    return files;
+}
+
+async function addTagToTask(client, taskId, tagGid) {
+    try {
+        const body = { data: { tag: tagGid } };
+        return await client.tasks.addTagForTask(body, taskId);
+    } catch (error) {
+        console.error(`Failed to add tag ${tagGid} to task ${taskId}:`, JSON.stringify(error));
+        core.setFailed(`Failed to add tag ${tagGid} to task ${taskId}`);
+    }
+}
+
+async function addTagsFromDiff() {
+    const githubPAT = core.getInput('github-pat', { required: true });
+    const githubClient = buildGithubClient(githubPAT);
+    const org = core.getInput('github-org', { required: true });
+    const repo = core.getInput('github-repository', { required: true });
+    const pullNumber = core.getInput('github-pr', { required: true });
+    const tagMapInput = core.getInput('tag-map', { required: true });
+
+    let tagMap;
+    try {
+        tagMap = JSON.parse(tagMapInput);
+    } catch (error) {
+        core.setFailed(`Invalid tag-map JSON: ${tagMapInput}`);
+        return;
+    }
+
+    const changedFiles = await getChangedFiles(githubClient, org, repo, pullNumber);
+    console.info(`PR #${pullNumber} changed ${changedFiles.length} file(s)`);
+
+    const tagGids = resolveTagsForFiles(tagMap, changedFiles);
+    if (tagGids.length === 0) {
+        console.info('No tags matched the changed files; nothing to do');
+        return;
+    }
+    console.info('Applying tags:', tagGids.join(','));
+
+    const client = buildAsanaClient();
+    const foundTasks = await findAsanaTasks();
+
+    const taskIds = [];
+    for (const taskId of foundTasks) {
+        for (const tagGid of tagGids) {
+            console.info(`Adding tag ${tagGid} to task ${taskId}`);
+            await addTagToTask(client, taskId, tagGid);
+        }
+        taskIds.push(taskId);
+    }
+    return taskIds;
+}
+
 async function addTaskPRDescription() {
     const githubPAT = core.getInput('github-pat');
     const githubClient = buildGithubClient(githubPAT);
@@ -636,6 +763,10 @@ async function action() {
         }
         case 'add-task-pr-description': {
             await addTaskPRDescription();
+            break;
+        }
+        case 'add-asana-tags-from-diff': {
+            await addTagsFromDiff();
             break;
         }
         case 'get-asana-user-id': {

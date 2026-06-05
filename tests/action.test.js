@@ -102,6 +102,7 @@ const mockAsanaClient = {
         updateTask: jest.fn().mockResolvedValue({}),
         getTasksForSection: jest.fn().mockResolvedValue({ data: [] }), // Default: no existing tasks
         getTask: jest.fn().mockResolvedValue(mockAsanaTask),
+        addTagForTask: jest.fn().mockResolvedValue({}),
     },
     sections: {
         addTaskForSection: jest.fn().mockResolvedValue({}),
@@ -1310,6 +1311,105 @@ describe('GitHub Asana Sync Action', () => {
                 {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('action: add-asana-tags-from-diff', () => {
+        const baseInputs = {
+            action: 'add-asana-tags-from-diff',
+            'asana-pat': 'mock-asana-pat',
+            'github-pat': 'mock-github-pat',
+            'github-org': 'test-owner',
+            'github-repository': 'test-repo',
+            'github-pr': '123',
+            'trigger-phrase': 'Closes', // resolves to task 2222 from the PR body
+        };
+
+        it('should add the matched tag and the fallback tag based on changed files', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'tag-map': JSON.stringify({ 'config/feature-flags.json': 'tagA', '*': 'tagB' }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'config/feature-flags.json' }, { filename: 'src/app.js' }],
+            });
+
+            await action();
+
+            expect(mockOctokitRequest).toHaveBeenCalledWith(
+                'GET /repos/{owner}/{repo}/pulls/{pull_number}/files',
+                expect.objectContaining({ owner: 'test-owner', repo: 'test-repo', pull_number: '123' }),
+            );
+            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledTimes(2);
+            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledWith({ data: { tag: 'tagA' } }, '2222');
+            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledWith({ data: { tag: 'tagB' } }, '2222');
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should apply only the fallback tag when no specific pattern matches', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'tag-map': JSON.stringify({ 'config/feature-flags.json': 'tagA', '*': 'tagB' }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'src/app.js' }, { filename: 'README.md' }],
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledWith({ data: { tag: 'tagB' } }, '2222');
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should support glob patterns spanning path segments', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'tag-map': JSON.stringify({ 'src/**': 'tagSrc', '**/*.sql': 'tagSql' }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'src/db/migrations/001.sql' }],
+            });
+
+            await action();
+
+            // file matches both src/** and **/*.sql -> both tags added once
+            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledTimes(2);
+            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledWith({ data: { tag: 'tagSrc' } }, '2222');
+            expect(mockAsanaClient.tasks.addTagForTask).toHaveBeenCalledWith({ data: { tag: 'tagSql' } }, '2222');
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should do nothing when no tags match and no fallback is provided', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'tag-map': JSON.stringify({ 'config/feature-flags.json': 'tagA' }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'src/app.js' }],
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.addTagForTask).not.toHaveBeenCalled();
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should fail on invalid tag-map JSON', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'tag-map': '{not valid json',
+            });
+            github.context.payload.issue = undefined;
+
+            await action();
+
+            expect(mockAsanaClient.tasks.addTagForTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith('Invalid tag-map JSON: {not valid json');
         });
     });
 

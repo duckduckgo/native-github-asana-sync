@@ -35,6 +35,7 @@ This action integrates asana with github.
 - `send-mattermost-message` to send a message to a channel in Mattermost
 - `get-asana-task-permalink` to get the permalink for a given Asana Task ID
 - `mark-asana-task-complete` to mark an Asana task as complete or incomplete
+- `add-asana-tags-from-diff` to add Asana tags to the PR's linked task(s) based on the files changed in the PR
 
 ### Create Asana task from Github Issue
 
@@ -619,6 +620,84 @@ jobs:
                   asana-task-id: ${{ github.event.inputs.task_id }}
                   is-complete: ${{ github.event.inputs.complete }}
                   action: 'mark-asana-task-complete'
+```
+
+### Add Asana tags based on the PR diff
+
+Looks for Asana task(s) linked in the PR description and adds Asana tags to them based on which files the Pull Request changed. The mapping from file paths to tag GIDs is provided inline via the `tag-map` input, so no extra Asana API calls are needed to resolve tag names — you supply tag GIDs directly.
+
+### `asana-pat`
+
+**Required** Asana public access token
+
+### `github-pat`
+
+**Required** Github public access token
+
+### `github-org`
+
+**Required** Github organisation that owns the repository
+
+### `github-repository`
+
+**Required** Github repository name
+
+### `github-pr`
+
+**Required** Github Pull Request number
+
+### `trigger-phrase`
+
+**Optional** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/. If not provided, any Asana URL in the text will be matched.
+
+### `tag-map`
+
+**Required** JSON string mapping file-path glob patterns to Asana tag GIDs.
+
+- A changed file is matched against each pattern using glob syntax: `*` matches within a single path segment, `**` matches across segments, and `?` matches a single non-`/` character. Exact paths also work.
+- A file may match multiple patterns, in which case all matching tags are added.
+- The special key `"*"` is a fallback tag applied to any changed file that did not match any other pattern.
+- All matching tag GIDs across all changed files are de-duplicated and applied to every linked task.
+
+#### How timing works
+
+Steps within a single workflow job run sequentially in the order listed, so placing this step before a `notify-pr-merged` step in the same job guarantees tags are applied before the task is completed. Ordering is only non-deterministic if the tag step and the complete step live in separate workflows triggered by the same event (they would run in parallel). Note that completing an Asana task does not remove its tags, so tags can also be added to an already-completed task.
+
+#### Example Usage
+
+```yaml
+on:
+    pull_request:
+        types: [closed]
+
+jobs:
+    asana-on-merge:
+        if: github.event.pull_request.merged
+        runs-on: ubuntu-latest
+        steps:
+            - name: Tag linked Asana tasks based on the diff
+              uses: duckduckgo/native-github-asana-sync@v1.1
+              with:
+                  action: 'add-asana-tags-from-diff'
+                  asana-pat: ${{ secrets.asana_pat }}
+                  github-pat: ${{ secrets.github_pat }}
+                  github-org: ${{ github.repository_owner }}
+                  github-repository: ${{ github.event.repository.name }}
+                  github-pr: ${{ github.event.pull_request.number }}
+                  trigger-phrase: 'Task/Issue URL:'
+                  tag-map: >-
+                      {
+                        "config/feature-flags.json": "1201111111111111",
+                        "*": "1202222222222222"
+                      }
+
+            - name: Complete linked Asana tasks
+              uses: duckduckgo/native-github-asana-sync@v1.1
+              with:
+                  action: 'notify-pr-merged'
+                  asana-pat: ${{ secrets.asana_pat }}
+                  trigger-phrase: 'Task/Issue URL:'
+                  is-complete: true
 ```
 
 ## Contributing

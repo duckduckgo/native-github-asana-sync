@@ -60,6 +60,12 @@ inputs:
     github-username:
         description: 'Github Username.'
         required: false
+    github-pr:
+        description: 'Github Pull Request number.'
+        required: false
+    tag-map:
+        description: 'JSON string mapping file-path glob patterns to Asana tag GIDs, used by add-asana-tags-from-diff. A file matches a pattern using glob syntax (* matches within a path segment, ** across segments). The special key "*" is a fallback tag applied to any changed file that matched no other pattern. i.e. {"config/feature-flags.json":"1201111111111111","*":"1202222222222222"}.'
+        required: false
     pr-review-state:
         description: 'State of the Pull Request Review [approved | changes_requested | commented].'
         required: false
