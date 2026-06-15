@@ -661,6 +661,8 @@ Example payload combining several types:
 
 If the JSON fails to parse, the action fails and no tasks are updated.
 
+When multiple task IDs are provided and the Asana API rejects one update mid-batch, the action stops on the first failure: tasks earlier in the list keep the new values, the failing task and all subsequent tasks are left untouched, and `setFailed` reports which IDs were skipped. Asana has no batch rollback, so re-running the action after fixing the root cause is the way to land a uniform update.
+
 #### Example Usage
 
 ```yaml
