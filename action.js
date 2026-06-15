@@ -185,6 +185,40 @@ async function addTaskToAsanaProject() {
     }
 }
 
+async function updateTaskCustomFieldsAction() {
+    const client = buildAsanaClient();
+
+    const taskIds = getArrayFromInput(core.getInput('asana-task-id', { required: true }));
+    const customFieldsInput = core.getInput('asana-task-custom-fields', { required: true });
+
+    if (taskIds.length === 0) {
+        core.setFailed(`No valid task IDs provided`);
+        return;
+    }
+
+    let customFields;
+    try {
+        customFields = JSON.parse(customFieldsInput);
+    } catch (error) {
+        core.setFailed(`Invalid custom fields JSON: ${customFieldsInput}`);
+        return;
+    }
+
+    for (const taskId of taskIds) {
+        await updateTaskCustomFields(client, taskId, customFields);
+    }
+}
+
+async function updateTaskCustomFields(client, taskId, customFields) {
+    console.info(`Updating custom fields on task ${taskId}`);
+    try {
+        await client.tasks.updateTask({ data: { custom_fields: customFields } }, taskId, {});
+    } catch (error) {
+        console.error(`Error updating custom fields on task ${taskId}:`, JSON.stringify(error));
+        core.setFailed(`Error updating custom fields on task ${taskId}: ${error.message}`);
+    }
+}
+
 async function addTaskToProject(client, taskId, projectId, sectionId) {
     if (!sectionId) {
         console.info('adding asana task to project', projectId);
@@ -658,6 +692,10 @@ async function action() {
         }
         case 'mark-asana-task-complete': {
             await markAsanaTaskComplete();
+            break;
+        }
+        case 'update-task-custom-fields': {
+            await updateTaskCustomFieldsAction();
             break;
         }
         default:

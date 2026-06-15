@@ -35,6 +35,7 @@ This action integrates asana with github.
 - `send-mattermost-message` to send a message to a channel in Mattermost
 - `get-asana-task-permalink` to get the permalink for a given Asana Task ID
 - `mark-asana-task-complete` to mark an Asana task as complete or incomplete
+- `update-task-custom-fields` to update custom field values on one or more existing Asana tasks
 
 ### Create Asana task from Github Issue
 
@@ -619,6 +620,64 @@ jobs:
                   asana-task-id: ${{ github.event.inputs.task_id }}
                   is-complete: ${{ github.event.inputs.complete }}
                   action: 'mark-asana-task-complete'
+```
+
+### Update custom fields on an Asana task
+
+Updates custom field values on one or more existing Asana tasks. Useful when a task should be tagged with metadata (release status, team, objective, etc.) after it's created or moved between projects.
+
+### `asana-pat`
+
+**Required** Asana public access token
+
+### `asana-task-id`
+
+**Required** ID of the Asana task to update. Can be a single ID or a comma-separated list of IDs — the same custom-field payload is applied to each task.
+
+### `asana-task-custom-fields`
+
+**Required** Custom field values, encoded as a JSON object string. The value must be a JSON **object** (hash) keyed by custom-field GID — this matches Asana's write format for `custom_fields` on the [update task endpoint](https://developers.asana.com/reference/updatetask). Asana's GET shape (the "array of objects" returned when reading a task) is _not_ accepted on writes.
+
+The per-type value is:
+
+- `enum` → the option GID (string)
+- `multi_enum` → an array of option GIDs
+- `text` → string
+- `number` → number
+- `people` → an array of user GIDs
+
+Example payload combining several types:
+
+```json
+{
+    "1214395894874538": "1214395894874539",
+    "1210006359830485": ["1210006359830486", "1210006359830487"],
+    "1206366040248299": 3,
+    "1202953247086041": ["12345"]
+}
+```
+
+> Note: you can retrieve custom-field GIDs and their enum option GIDs for a given project via the Asana API, i.e. `https://app.asana.com/api/1.0/projects/<project_gid>/custom_field_settings`.
+
+If the JSON fails to parse, the action fails and no tasks are updated.
+
+#### Example Usage
+
+```yaml
+on:
+    workflow_dispatch:
+
+jobs:
+    update-fields:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Update custom fields on Asana task
+              uses: duckduckgo/native-github-asana-sync@v1.1
+              with:
+                  asana-pat: ${{ secrets.asana_pat }}
+                  asana-task-id: '1212699261164265'
+                  asana-task-custom-fields: '{"1214395894874538":"1214395894874539"}'
+                  action: 'update-task-custom-fields'
 ```
 
 ## Contributing

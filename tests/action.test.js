@@ -524,6 +524,62 @@ describe('GitHub Asana Sync Action', () => {
         });
     });
 
+    describe('action: update-task-custom-fields', () => {
+        const taskIdsToUpdate = 'task-abc, task-def';
+
+        it('should update custom fields on each task', async () => {
+            mockGetInput({
+                action: 'update-task-custom-fields',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': taskIdsToUpdate,
+                'asana-task-custom-fields': '{"1234567890":"option-gid"}',
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(2);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                { data: { custom_fields: { 1234567890: 'option-gid' } } },
+                'task-abc',
+                {},
+            );
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                { data: { custom_fields: { 1234567890: 'option-gid' } } },
+                'task-def',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should fail when JSON is invalid', async () => {
+            mockGetInput({
+                action: 'update-task-custom-fields',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': taskIdsToUpdate,
+                'asana-task-custom-fields': 'not-json',
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith('Invalid custom fields JSON: not-json');
+        });
+
+        it('should fail when no task IDs are provided', async () => {
+            mockGetInput({
+                action: 'update-task-custom-fields',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': ',',
+                'asana-task-custom-fields': '{"1234567890":"option-gid"}',
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith('No valid task IDs provided');
+        });
+    });
+
     describe('action: create-asana-pr-task', () => {
         it('should create an Asana task from a GitHub PR', async () => {
             mockGetInput({
