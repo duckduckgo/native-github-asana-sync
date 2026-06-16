@@ -1563,21 +1563,9 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(3);
-            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
-                { data: { custom_fields: { [fieldGid]: optionB } } },
-                '2222',
-                {},
-            );
-            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
-                { data: { custom_fields: { [fieldGid]: optionB } } },
-                '3333',
-                {},
-            );
-            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
-                { data: { custom_fields: { [fieldGid]: optionB } } },
-                '4444',
-                {},
-            );
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith({ data: { custom_fields: { [fieldGid]: optionB } } }, '2222', {});
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith({ data: { custom_fields: { [fieldGid]: optionB } } }, '3333', {});
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith({ data: { custom_fields: { [fieldGid]: optionB } } }, '4444', {});
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
@@ -1601,9 +1589,7 @@ describe('GitHub Asana Sync Action', () => {
             expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(expect.anything(), '2222', {});
             expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(expect.anything(), '3333', {});
             expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalledWith(expect.anything(), '4444', {});
-            expect(core.setFailed).toHaveBeenCalledWith(
-                'Error updating custom fields on task 3333: boom. Skipped remaining tasks: 4444.',
-            );
+            expect(core.setFailed).toHaveBeenCalledWith('Error updating custom fields on task 3333: boom. Skipped remaining tasks: 4444.');
         });
     });
 
