@@ -57,6 +57,50 @@ function getArrayFromInput(input) {
         : [];
 }
 
+function formatErrorMessage(error) {
+    if (error?.message) {
+        return error.message;
+    }
+    try {
+        return JSON.stringify(error);
+    } catch {
+        return String(error);
+    }
+}
+
+function isPlainObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseCustomFieldsHash(jsonInput, failureLabel) {
+    let parsed;
+    try {
+        parsed = JSON.parse(jsonInput);
+    } catch (error) {
+        core.setFailed(`Invalid ${failureLabel} JSON: ${jsonInput}`);
+        return null;
+    }
+    if (!isPlainObject(parsed)) {
+        core.setFailed(`${failureLabel} must be a JSON object`);
+        return null;
+    }
+    return parsed;
+}
+
+function parseCustomFieldMap(fieldMapInput) {
+    const fieldMap = parseCustomFieldsHash(fieldMapInput, 'custom-field-map');
+    if (fieldMap === null) {
+        return null;
+    }
+    for (const [pattern, fields] of Object.entries(fieldMap)) {
+        if (!isPlainObject(fields)) {
+            core.setFailed(`custom-field-map entry for "${pattern}" must be a JSON object`);
+            return null;
+        }
+    }
+    return fieldMap;
+}
+
 async function isTaskInProject(taskId, projectId) {
     const client = buildAsanaClient();
     try {
@@ -71,6 +115,10 @@ async function isTaskInProject(taskId, projectId) {
 async function findAsanaTasks() {
     const triggerPhrase = core.getInput('trigger-phrase');
     const pullRequest = github.context.payload.pull_request;
+    if (!pullRequest?.body) {
+        console.info('No pull request context available for task discovery');
+        return [];
+    }
     const regexString = `${triggerPhrase}\\s*https:\\/\\/app.asana.com\\/(\\d+)\\/((\\d+)\\/)?(project\\/)?(?<project>\\d+)(\\/task)?\\/(?<task>\\d+).*?`;
     const specifiedProjectId = core.getInput('asana-project');
     const regex = new RegExp(regexString, 'g');
@@ -203,11 +251,8 @@ async function updateTaskCustomFieldsAction() {
         return;
     }
 
-    let customFields;
-    try {
-        customFields = JSON.parse(customFieldsInput);
-    } catch (error) {
-        core.setFailed(`Invalid custom fields JSON: ${customFieldsInput}`);
+    const customFields = parseCustomFieldsHash(customFieldsInput, 'custom fields');
+    if (customFields === null) {
         return;
     }
 
@@ -219,7 +264,7 @@ async function updateTaskCustomFieldsAction() {
             console.error(`Error updating custom fields on task ${taskId}:`, JSON.stringify(error));
             const remaining = taskIds.slice(i + 1);
             const suffix = remaining.length ? ` Skipped remaining tasks: ${remaining.join(', ')}.` : '';
-            core.setFailed(`Error updating custom fields on task ${taskId}: ${error.message}.${suffix}`);
+            core.setFailed(`Error updating custom fields on task ${taskId}: ${formatErrorMessage(error)}.${suffix}`);
             return;
         }
     }
@@ -538,11 +583,8 @@ async function setCustomFieldsFromDiff() {
     const pullNumber = core.getInput('github-pr', { required: true });
     const fieldMapInput = core.getInput('custom-field-map', { required: true });
 
-    let fieldMap;
-    try {
-        fieldMap = JSON.parse(fieldMapInput);
-    } catch (error) {
-        core.setFailed(`Invalid custom-field-map JSON: ${fieldMapInput}`);
+    const fieldMap = parseCustomFieldMap(fieldMapInput);
+    if (fieldMap === null) {
         return;
     }
 
@@ -567,7 +609,7 @@ async function setCustomFieldsFromDiff() {
             console.error(`Error updating custom fields on task ${taskId}:`, JSON.stringify(error));
             const remaining = foundTasks.slice(i + 1);
             const suffix = remaining.length ? ` Skipped remaining tasks: ${remaining.join(', ')}.` : '';
-            core.setFailed(`Error updating custom fields on task ${taskId}: ${error.message}.${suffix}`);
+            core.setFailed(`Error updating custom fields on task ${taskId}: ${formatErrorMessage(error)}.${suffix}`);
             return;
         }
     }

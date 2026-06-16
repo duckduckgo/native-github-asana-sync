@@ -549,6 +549,20 @@ describe('GitHub Asana Sync Action', () => {
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
+
+        it('should fail if no task IDs are provided outside a pull request event', async () => {
+            github.context.payload.pull_request = undefined;
+            mockGetInput({
+                action: 'add-task-asana-project',
+                'asana-pat': 'mock-asana-pat',
+                'asana-project': mockAsanaProject,
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.addProjectForTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith('No valid task IDs provided');
+        });
     });
 
     describe('action: update-task-custom-fields', () => {
@@ -590,6 +604,20 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
             expect(core.setFailed).toHaveBeenCalledWith('Invalid custom fields JSON: not-json');
+        });
+
+        it('should fail when JSON is not an object', async () => {
+            mockGetInput({
+                action: 'update-task-custom-fields',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': taskIdsToUpdate,
+                'asana-task-custom-fields': '[]',
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith('custom fields must be a JSON object');
         });
 
         it('should fail when no task IDs are provided', async () => {
@@ -1547,6 +1575,32 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
             expect(core.setFailed).toHaveBeenCalledWith('Invalid custom-field-map JSON: {not valid json');
+        });
+
+        it('should fail when custom-field-map is not an object', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'custom-field-map': 'null',
+            });
+            github.context.payload.issue = undefined;
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith('custom-field-map must be a JSON object');
+        });
+
+        it('should fail when a custom-field-map pattern value is not an object', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'custom-field-map': JSON.stringify({ 'src/*': 'not-an-object' }),
+            });
+            github.context.payload.issue = undefined;
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith('custom-field-map entry for "src/*" must be a JSON object');
         });
 
         it('should update all linked tasks from the PR body', async () => {
