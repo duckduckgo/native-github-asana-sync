@@ -1418,6 +1418,195 @@ describe('GitHub Asana Sync Action', () => {
         });
     });
 
+    describe('action: set-asana-custom-fields-from-diff', () => {
+        const fieldGid = '1201111111111111';
+        const optionA = '1209999999999991';
+        const optionB = '1209999999999992';
+        const baseInputs = {
+            action: 'set-asana-custom-fields-from-diff',
+            'asana-pat': 'mock-asana-pat',
+            'github-pat': 'mock-github-pat',
+            'github-org': 'test-owner',
+            'github-repository': 'test-repo',
+            'github-pr': '123',
+            'trigger-phrase': 'Closes', // resolves to task 2222 from the PR body
+        };
+
+        it('should set the specific field value when the matching file changed (first match wins)', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'custom-field-map': JSON.stringify({
+                    'config/feature-flags.json': { [fieldGid]: optionA },
+                    '*': { [fieldGid]: optionB },
+                }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'config/feature-flags.json' }, { filename: 'src/app.js' }],
+            });
+
+            await action();
+
+            expect(mockOctokitRequest).toHaveBeenCalledWith(
+                'GET /repos/{owner}/{repo}/pulls/{pull_number}/files',
+                expect.objectContaining({ owner: 'test-owner', repo: 'test-repo', pull_number: '123' }),
+            );
+            // Specific pattern wins over the fallback for the same field GID
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith({ data: { custom_fields: { [fieldGid]: optionA } } }, '2222', {});
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should apply the fallback field value when no specific pattern matches', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'custom-field-map': JSON.stringify({
+                    'config/feature-flags.json': { [fieldGid]: optionA },
+                    '*': { [fieldGid]: optionB },
+                }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'src/app.js' }, { filename: 'README.md' }],
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith({ data: { custom_fields: { [fieldGid]: optionB } } }, '2222', {});
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should merge a prefix-matched field and a different fallback field', async () => {
+            const otherField = '1203333333333333';
+            mockGetInput({
+                ...baseInputs,
+                'custom-field-map': JSON.stringify({
+                    'src/*': { [fieldGid]: optionA },
+                    '*': { [otherField]: 'fallback-value' },
+                }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'src/db/migrations/001.sql' }],
+            });
+
+            await action();
+
+            // src/* prefix matches the nested file and sets fieldGid; fallback fills the (different) otherField
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                { data: { custom_fields: { [fieldGid]: optionA, [otherField]: 'fallback-value' } } },
+                '2222',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should match a suffix pattern with a leading star', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'custom-field-map': JSON.stringify({ '*.sql': { [fieldGid]: optionA } }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'db/migrations/001.sql' }],
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith({ data: { custom_fields: { [fieldGid]: optionA } } }, '2222', {});
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should do nothing when no pattern matches and no fallback is provided', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'custom-field-map': JSON.stringify({ 'config/feature-flags.json': { [fieldGid]: optionA } }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'src/app.js' }],
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should fail on invalid custom-field-map JSON', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'custom-field-map': '{not valid json',
+            });
+            github.context.payload.issue = undefined;
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith('Invalid custom-field-map JSON: {not valid json');
+        });
+
+        it('should update all linked tasks from the PR body', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'trigger-phrase': '',
+                'custom-field-map': JSON.stringify({ '*': { [fieldGid]: optionB } }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'src/app.js' }],
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(3);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                { data: { custom_fields: { [fieldGid]: optionB } } },
+                '2222',
+                {},
+            );
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                { data: { custom_fields: { [fieldGid]: optionB } } },
+                '3333',
+                {},
+            );
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                { data: { custom_fields: { [fieldGid]: optionB } } },
+                '4444',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should abort the batch on first API failure and skip remaining tasks', async () => {
+            mockGetInput({
+                ...baseInputs,
+                'trigger-phrase': '',
+                'custom-field-map': JSON.stringify({ '*': { [fieldGid]: optionB } }),
+            });
+            github.context.payload.issue = undefined;
+            mockOctokitRequest.mockResolvedValueOnce({
+                data: [{ filename: 'src/app.js' }],
+            });
+            mockAsanaClient.tasks.updateTask
+                .mockImplementationOnce(() => Promise.resolve({}))
+                .mockImplementationOnce(() => Promise.reject(new Error('boom')));
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(2);
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(expect.anything(), '2222', {});
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(expect.anything(), '3333', {});
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalledWith(expect.anything(), '4444', {});
+            expect(core.setFailed).toHaveBeenCalledWith(
+                'Error updating custom fields on task 3333: boom. Skipped remaining tasks: 4444.',
+            );
+        });
+    });
+
     describe('Invalid Action', () => {
         it('should fail for an unknown action', async () => {
             const unknownAction = 'unknown-action-name';
