@@ -509,7 +509,8 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
-        it('should fail if no task IDs are provided', async () => {
+        it('should fail if no task IDs are provided and PR body has no Asana URLs', async () => {
+            github.context.payload.pull_request.body = 'This PR has no Asana links.';
             mockGetInput({
                 action: 'add-task-asana-project',
                 'asana-pat': 'mock-asana-pat',
@@ -521,6 +522,32 @@ describe('GitHub Asana Sync Action', () => {
 
             expect(mockAsanaClient.tasks.addProjectForTask).not.toHaveBeenCalled();
             expect(core.setFailed).toHaveBeenCalledWith('No valid task IDs provided');
+        });
+
+        it('should fall back to PR body tasks when asana-task-id is omitted', async () => {
+            github.context.payload.pull_request.body =
+                'Task/Issue URL: https://app.asana.com/0/1111/2222\nTask/Issue URL: https://app.asana.com/0/1111/3333';
+            mockGetInput({
+                action: 'add-task-asana-project',
+                'asana-pat': 'mock-asana-pat',
+                'asana-project': mockAsanaProject,
+                'trigger-phrase': 'Task/Issue URL:',
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledTimes(2);
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
+                { data: { insert_after: null, project: mockAsanaProject } },
+                '2222',
+                {},
+            );
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledWith(
+                { data: { insert_after: null, project: mockAsanaProject } },
+                '3333',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
         });
     });
 
