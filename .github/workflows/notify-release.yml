@@ -8,7 +8,7 @@ on:
             tag_name:
                 description: 'Release tag to simulate'
                 required: true
-                default: 'v2.5.0'
+                default: 'v2.5.1'
             release_body:
                 description: 'Release notes body'
                 required: false
@@ -16,7 +16,7 @@ on:
             release_url:
                 description: 'Release HTML URL'
                 required: false
-                default: 'https://github.com/duckduckgo/native-github-asana-sync/releases/tag/v2.5.0'
+                default: 'https://github.com/duckduckgo/native-github-asana-sync/releases/tag/v2.5.1'
 
 env:
     FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
