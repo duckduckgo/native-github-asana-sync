@@ -60,6 +60,12 @@ inputs:
     github-username:
         description: 'Github Username.'
         required: false
+    github-pr:
+        description: 'Github Pull Request number.'
+        required: false
+    custom-field-map:
+        description: 'JSON mapping file-path patterns to an Asana custom_fields hash (field GID -> value).'
+        required: false
     pr-review-state:
         description: 'State of the Pull Request Review [approved | changes_requested | commented].'
         required: false

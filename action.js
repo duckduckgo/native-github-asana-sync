@@ -51,6 +51,50 @@ function getArrayFromInput(input) {
         : [];
 }
 
+function formatErrorMessage(error) {
+    if (error?.message) {
+        return error.message;
+    }
+    try {
+        return JSON.stringify(error);
+    } catch {
+        return String(error);
+    }
+}
+
+function isPlainObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseCustomFieldsHash(jsonInput, failureLabel) {
+    let parsed;
+    try {
+        parsed = JSON.parse(jsonInput);
+    } catch (error) {
+        core.setFailed(`Invalid ${failureLabel} JSON: ${jsonInput}`);
+        return null;
+    }
+    if (!isPlainObject(parsed)) {
+        core.setFailed(`${failureLabel} must be a JSON object`);
+        return null;
+    }
+    return parsed;
+}
+
+function parseCustomFieldMap(fieldMapInput) {
+    const fieldMap = parseCustomFieldsHash(fieldMapInput, 'custom-field-map');
+    if (fieldMap === null) {
+        return null;
+    }
+    for (const [pattern, fields] of Object.entries(fieldMap)) {
+        if (!isPlainObject(fields)) {
+            core.setFailed(`custom-field-map entry for "${pattern}" must be a JSON object`);
+            return null;
+        }
+    }
+    return fieldMap;
+}
+
 async function isTaskInProject(taskId, projectId) {
     const client = buildAsanaClient();
     try {
@@ -65,6 +109,10 @@ async function isTaskInProject(taskId, projectId) {
 async function findAsanaTasks() {
     const triggerPhrase = core.getInput('trigger-phrase');
     const pullRequest = github.context.payload.pull_request;
+    if (!pullRequest?.body) {
+        console.info('No pull request context available for task discovery');
+        return [];
+    }
     const regexString = `${triggerPhrase}\\s*https:\\/\\/app.asana.com\\/(\\d+)\\/((\\d+)\\/)?(project\\/)?(?<project>\\d+)(\\/task)?\\/(?<task>\\d+).*?`;
     const specifiedProjectId = core.getInput('asana-project');
     const regex = new RegExp(regexString, 'g');
@@ -197,11 +245,8 @@ async function updateTaskCustomFieldsAction() {
         return;
     }
 
-    let customFields;
-    try {
-        customFields = JSON.parse(customFieldsInput);
-    } catch (error) {
-        core.setFailed(`Invalid custom fields JSON: ${customFieldsInput}`);
+    const customFields = parseCustomFieldsHash(customFieldsInput, 'custom fields');
+    if (customFields === null) {
         return;
     }
 
@@ -213,7 +258,7 @@ async function updateTaskCustomFieldsAction() {
             console.error(`Error updating custom fields on task ${taskId}:`, JSON.stringify(error));
             const remaining = taskIds.slice(i + 1);
             const suffix = remaining.length ? ` Skipped remaining tasks: ${remaining.join(', ')}.` : '';
-            core.setFailed(`Error updating custom fields on task ${taskId}: ${error.message}.${suffix}`);
+            core.setFailed(`Error updating custom fields on task ${taskId}: ${formatErrorMessage(error)}.${suffix}`);
             return;
         }
     }
@@ -438,6 +483,130 @@ async function createAsanaTask() {
     const customFields = core.getInput('asana-task-custom-fields');
 
     return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee, customFields);
+}
+
+function matchesPattern(pattern, filePath) {
+    if (pattern === filePath) {
+        return true;
+    }
+
+    const hasLeadingStar = pattern.startsWith('*');
+    const hasTrailingStar = pattern.endsWith('*');
+
+    let literal = pattern;
+    while (literal.startsWith('*')) {
+        literal = literal.slice(1);
+    }
+    while (literal.endsWith('*')) {
+        literal = literal.slice(0, -1);
+    }
+
+    if (hasLeadingStar && hasTrailingStar) {
+        return literal === '' || filePath.includes(literal);
+    }
+    if (hasLeadingStar) {
+        return filePath.endsWith(literal);
+    }
+    if (hasTrailingStar) {
+        return filePath.startsWith(literal);
+    }
+    return false;
+}
+
+function resolveCustomFieldsForFiles(fieldMap, changedFiles) {
+    const fallbackFields = fieldMap['*'];
+    const patterns = Object.entries(fieldMap).filter(([pattern]) => pattern !== '*');
+    const resolved = {};
+
+    for (const [pattern, fields] of patterns) {
+        const anyFileMatches = changedFiles.some((file) => matchesPattern(pattern, file));
+        if (!anyFileMatches) {
+            continue;
+        }
+        for (const [fieldGid, value] of Object.entries(fields)) {
+            if (!(fieldGid in resolved)) {
+                resolved[fieldGid] = value;
+            }
+        }
+    }
+
+    // The "*" fallback only fills in fields that no specific pattern set.
+    if (fallbackFields) {
+        for (const [fieldGid, value] of Object.entries(fallbackFields)) {
+            if (!(fieldGid in resolved)) {
+                resolved[fieldGid] = value;
+            }
+        }
+    }
+
+    return resolved;
+}
+
+async function getChangedFiles(githubClient, owner, repo, pullNumber) {
+    const files = [];
+    const perPage = 100;
+    let page = 1;
+
+    while (true) {
+        const response = await githubClient.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', {
+            owner,
+            repo,
+            pull_number: pullNumber,
+            per_page: perPage,
+            page,
+            headers: {
+                'X-GitHub-Api-Version': '2022-11-28',
+            },
+        });
+        const data = response.data || [];
+        files.push(...data.map((file) => file.filename));
+        if (data.length < perPage) {
+            break;
+        }
+        page++;
+    }
+
+    return files;
+}
+
+async function setCustomFieldsFromDiff() {
+    const githubPAT = core.getInput('github-pat', { required: true });
+    const githubClient = buildGithubClient(githubPAT);
+    const org = core.getInput('github-org', { required: true });
+    const repo = core.getInput('github-repository', { required: true });
+    const pullNumber = core.getInput('github-pr', { required: true });
+    const fieldMapInput = core.getInput('custom-field-map', { required: true });
+
+    const fieldMap = parseCustomFieldMap(fieldMapInput);
+    if (fieldMap === null) {
+        return;
+    }
+
+    const changedFiles = await getChangedFiles(githubClient, org, repo, pullNumber);
+    console.info(`PR #${pullNumber} changed ${changedFiles.length} file(s)`);
+
+    const customFields = resolveCustomFieldsForFiles(fieldMap, changedFiles);
+    if (Object.keys(customFields).length === 0) {
+        console.info('No custom fields matched the changed files; nothing to do');
+        return;
+    }
+    console.info('Setting custom fields:', JSON.stringify(customFields));
+
+    const client = buildAsanaClient();
+    const foundTasks = await findAsanaTasks();
+
+    for (let i = 0; i < foundTasks.length; i++) {
+        const taskId = foundTasks[i];
+        try {
+            await updateTaskCustomFields(client, taskId, customFields);
+        } catch (error) {
+            console.error(`Error updating custom fields on task ${taskId}:`, JSON.stringify(error));
+            const remaining = foundTasks.slice(i + 1);
+            const suffix = remaining.length ? ` Skipped remaining tasks: ${remaining.join(', ')}.` : '';
+            core.setFailed(`Error updating custom fields on task ${taskId}: ${formatErrorMessage(error)}.${suffix}`);
+            return;
+        }
+    }
 }
 
 async function addTaskPRDescription() {
@@ -669,6 +838,10 @@ async function action() {
         }
         case 'add-task-pr-description': {
             await addTaskPRDescription();
+            break;
+        }
+        case 'set-asana-custom-fields-from-diff': {
+            await setCustomFieldsFromDiff();
             break;
         }
         case 'get-asana-user-id': {

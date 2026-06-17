@@ -36,6 +36,7 @@ This action integrates asana with github.
 - `get-asana-task-permalink` to get the permalink for a given Asana Task ID
 - `mark-asana-task-complete` to mark an Asana task as complete or incomplete
 - `update-task-custom-fields` to update custom field values on one or more existing Asana tasks
+- `set-asana-custom-fields-from-diff` to set Asana custom field values on the PR's linked task(s) based on the files changed in the PR
 
 ### Create Asana task from Github Issue
 
@@ -680,6 +681,81 @@ jobs:
                   asana-task-id: '1212699261164265'
                   asana-task-custom-fields: '{"1214395894874538":"1214395894874539"}'
                   action: 'update-task-custom-fields'
+```
+
+### Set Asana custom fields based on the PR diff
+
+Looks for Asana task(s) linked in the PR description and sets custom field values on them based on which files the Pull Request changed.
+
+### `asana-pat`
+
+**Required** Asana public access token
+
+### `github-pat`
+
+**Required** Github public access token
+
+### `github-org`
+
+**Required** Github organisation that owns the repository
+
+### `github-repository`
+
+**Required** Github repository name
+
+### `github-pr`
+
+**Required** Github Pull Request number
+
+### `trigger-phrase`
+
+**Optional** Prefix before the task i.e ASANA TASK: https://app.asana.com/1/2/3/. If not provided, any Asana URL in the text will be matched.
+
+### `custom-field-map`
+
+**Required** JSON string mapping file-path patterns to an Asana `custom_fields` hash (field GID -> value).
+
+- Matches on changed file paths: an exact path, a trailing `*` for a prefix match (e.g., `features/*`), a leading `*` for a suffix match (e.g., `*.json`), or both for a substring match.
+- For enum Asana fields the value is the option's GID; for text fields a string; for number fields a number.
+- Because a custom field holds a single value, patterns are applied in **declaration order** and the first entry to set a given field GID wins (so list more specific rules first).
+- The `"*"` fallback can be used if you want every linked task to always have the field set.
+
+#### Example Usage
+
+```yaml
+on:
+    pull_request:
+        types: [closed]
+
+jobs:
+    asana-on-merge:
+        if: github.event.pull_request.merged
+        runs-on: ubuntu-latest
+        steps:
+            - name: Set Asana custom fields based on the diff
+              uses: duckduckgo/native-github-asana-sync@v1.1
+              with:
+                  action: 'set-asana-custom-fields-from-diff'
+                  asana-pat: ${{ secrets.asana_pat }}
+                  github-pat: ${{ secrets.github_pat }}
+                  github-org: ${{ github.repository_owner }}
+                  github-repository: ${{ github.event.repository.name }}
+                  github-pr: ${{ github.event.pull_request.number }}
+                  trigger-phrase: 'Task/Issue URL:'
+                  custom-field-map: >-
+                      {
+                        "features/unprotected-temporary.json": { "1201111111111111": "1209999999999991" },
+                        "feature/content-blocking.json": { "1201111111111111": "1209999999999992" },
+                        "*": { "1201111111111111": "1209999999999993" }
+                      }
+
+            - name: Complete linked Asana tasks
+              uses: duckduckgo/native-github-asana-sync@v1.1
+              with:
+                  action: 'notify-pr-merged'
+                  asana-pat: ${{ secrets.asana_pat }}
+                  trigger-phrase: 'Task/Issue URL:'
+                  is-complete: true
 ```
 
 ## Contributing
