@@ -38,7 +38,7 @@ jobs:
               id: android-task
               uses: ./
               with:
-                  asana-pat: ${{ secrets.ASANA_PAT_TEST }}
+                  asana-pat: ${{ secrets.ASANA_ACCESS_TOKEN }}
                   asana-project: '1209454604567606'
                   asana-section: '1209455675160384'
                   asana-task-name: '🤖 Asana <> Github Integration Update: ${{ env.RELEASE_TAG }}'
@@ -63,7 +63,7 @@ jobs:
             # - name: Create Asana task for [TEAM_NAME] team
             #   uses: duckduckgo/native-github-asana-sync@main
             #   with:
-            #     asana-pat: ${{ secrets.ASANA_PAT }}
+            #     asana-pat: ${{ secrets.ASANA_ACCESS_TOKEN }}
             #     asana-project: ${{ vars.[TEAM]_ASANA_PROJECT_ID }}
             #     asana-section: ${{ vars.[TEAM]_ASANA_SECTION_ID }}
             #     asana-task-name: "📢 Asana <> Github Integration Update: ${{ github.event.release.tag_name }}"
