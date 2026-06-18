@@ -232,6 +232,40 @@ describe('GitHub Asana Sync Action', () => {
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
+
+        it('should fail if task creation rejects', async () => {
+            mockGetInput({
+                action: 'create-asana-issue-task',
+                'asana-pat': 'mock-asana-pat',
+                'asana-project': mockAsanaProject,
+            });
+            github.context.payload.pull_request = undefined;
+            mockAsanaClient.tasks.createTask.mockRejectedValueOnce(new Error('boom'));
+
+            await action();
+
+            expect(mockAsanaClient.stories.createStoryForTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith(
+                `Failed to create Asana task: Github Issue: ${mockGithubContextPayload.issue.title}`,
+            );
+        });
+
+        it('should fail if comment creation rejects after task is created', async () => {
+            mockGetInput({
+                action: 'create-asana-issue-task',
+                'asana-pat': 'mock-asana-pat',
+                'asana-project': mockAsanaProject,
+            });
+            github.context.payload.pull_request = undefined;
+            mockAsanaClient.stories.createStoryForTask.mockRejectedValueOnce(new Error('boom'));
+
+            await action();
+
+            expect(mockAsanaClient.tasks.createTask).toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith(
+                `Failed to post comment on Asana task ${mockAsanaCreatedTask.data.gid}`,
+            );
+        });
     });
 
     describe('action: notify-pr-approved', () => {
@@ -285,6 +319,25 @@ describe('GitHub Asana Sync Action', () => {
                 {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should fail if any comment post fails but continue through remaining tasks', async () => {
+            mockGetInput({
+                action: 'notify-pr-approved',
+                'asana-pat': 'mock-asana-pat',
+                'trigger-phrase': '',
+                'is-complete': 'true',
+            });
+            github.context.payload.issue = undefined;
+            mockAsanaClient.stories.createStoryForTask
+                .mockResolvedValueOnce(mockAsanaStory)
+                .mockRejectedValueOnce(new Error('boom'))
+                .mockResolvedValueOnce(mockAsanaStory);
+
+            await action();
+
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(3);
+            expect(core.setFailed).toHaveBeenCalledWith('Failed to post PR approved comments to tasks: 3333');
         });
     });
 
@@ -381,6 +434,26 @@ describe('GitHub Asana Sync Action', () => {
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
+
+        it('should fail once aggregating failures across multiple tasks', async () => {
+            mockGetInput({
+                action: 'notify-pr-merged',
+                'asana-pat': 'mock-asana-pat',
+                'trigger-phrase': '',
+                'is-complete': 'true',
+            });
+            github.context.payload.issue = undefined;
+            mockAsanaClient.tasks.updateTask
+                .mockResolvedValueOnce({})
+                .mockRejectedValueOnce(new Error('boom'))
+                .mockRejectedValueOnce(new Error('boom2'));
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(3);
+            expect(core.setFailed).toHaveBeenCalledTimes(1);
+            expect(core.setFailed).toHaveBeenCalledWith('Failed to mark tasks complete: 3333, 4444');
+        });
     });
 
     describe('action: check-pr-membership', () => {
@@ -430,6 +503,25 @@ describe('GitHub Asana Sync Action', () => {
                 {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should fail if any comment post fails but continue through remaining tasks', async () => {
+            mockGetInput({
+                action: 'add-asana-comment',
+                'asana-pat': 'mock-asana-pat',
+                'trigger-phrase': '',
+                'is-pinned': 'true',
+            });
+            github.context.payload.issue = undefined;
+            mockAsanaClient.stories.createStoryForTask
+                .mockResolvedValueOnce(mockAsanaStory)
+                .mockRejectedValueOnce(new Error('boom'))
+                .mockResolvedValueOnce(mockAsanaStory);
+
+            await action();
+
+            expect(mockAsanaClient.stories.createStoryForTask).toHaveBeenCalledTimes(3);
+            expect(core.setFailed).toHaveBeenCalledWith('Failed to post PR comments to tasks: 3333');
         });
     });
 
@@ -563,6 +655,26 @@ describe('GitHub Asana Sync Action', () => {
             expect(mockAsanaClient.tasks.addProjectForTask).not.toHaveBeenCalled();
             expect(core.setFailed).toHaveBeenCalledWith('No valid task IDs provided');
         });
+
+        it('should fail aggregating tasks whose add call rejects while continuing the loop', async () => {
+            mockGetInput({
+                action: 'add-task-asana-project',
+                'asana-pat': 'mock-asana-pat',
+                'asana-project': mockAsanaProject,
+                'asana-task-id': 'task-abc, task-def, task-ghi',
+            });
+            mockAsanaClient.tasks.addProjectForTask
+                .mockResolvedValueOnce({})
+                .mockRejectedValueOnce(new Error('boom'))
+                .mockResolvedValueOnce({});
+
+            await action();
+
+            expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledTimes(3);
+            expect(core.setFailed).toHaveBeenCalledWith(
+                `Failed to add the following tasks to project ${mockAsanaProject}: task-def`,
+            );
+        });
     });
 
     describe('action: update-task-custom-fields', () => {
@@ -694,6 +806,40 @@ describe('GitHub Asana Sync Action', () => {
                 {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should fail if task creation rejects', async () => {
+            mockGetInput({
+                action: 'create-asana-pr-task',
+                'asana-pat': 'mock-asana-pat',
+                'asana-project': mockAsanaProject,
+            });
+            github.context.payload.issue = undefined;
+            mockAsanaClient.tasks.createTask.mockRejectedValueOnce(new Error('boom'));
+
+            await action();
+
+            expect(mockAsanaClient.stories.createStoryForTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith(
+                `Failed to create Asana task: Community Pull Request: ${mockGithubContextPayload.pull_request.title}`,
+            );
+        });
+
+        it('should fail if comment creation rejects after task is created', async () => {
+            mockGetInput({
+                action: 'create-asana-pr-task',
+                'asana-pat': 'mock-asana-pat',
+                'asana-project': mockAsanaProject,
+            });
+            github.context.payload.issue = undefined;
+            mockAsanaClient.stories.createStoryForTask.mockRejectedValueOnce(new Error('boom'));
+
+            await action();
+
+            expect(mockAsanaClient.tasks.createTask).toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith(
+                `Failed to post comment on Asana task ${mockAsanaCreatedTask.data.gid}`,
+            );
         });
     });
 
@@ -861,6 +1007,39 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setOutput).toHaveBeenCalledWith('taskId', 'existing-123');
             expect(core.setOutput).toHaveBeenCalledWith('duplicate', true);
             expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should fail if the createTask API call rejects', async () => {
+            mockGetInput({
+                action: 'create-asana-task',
+                'asana-pat': 'mock-asana-pat',
+                'asana-project': mockAsanaProject,
+                'asana-task-name': taskName,
+                'asana-task-description': taskDescription,
+            });
+            mockAsanaClient.tasks.createTask.mockRejectedValueOnce(new Error('boom'));
+
+            await action();
+
+            expect(mockAsanaClient.tasks.createTask).toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith(`Failed to create Asana task: ${taskName}`);
+        });
+
+        it('should fail if the section lookup rejects', async () => {
+            mockGetInput({
+                action: 'create-asana-task',
+                'asana-pat': 'mock-asana-pat',
+                'asana-project': mockAsanaProject,
+                'asana-section': mockAsanaSection,
+                'asana-task-name': taskName,
+                'asana-task-description': taskDescription,
+            });
+            mockAsanaClient.tasks.getTasksForSection.mockRejectedValueOnce(new Error('boom'));
+
+            await action();
+
+            expect(mockAsanaClient.tasks.createTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith(`Failed to create Asana task: ${taskName}`);
         });
     });
 
@@ -1443,6 +1622,20 @@ describe('GitHub Asana Sync Action', () => {
                 {},
             );
             expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should fail if the update rejects', async () => {
+            mockGetInput({
+                action: 'mark-asana-task-complete',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-999',
+                'is-complete': 'true',
+            });
+            mockAsanaClient.tasks.updateTask.mockRejectedValueOnce(new Error('boom'));
+
+            await action();
+
+            expect(core.setFailed).toHaveBeenCalledWith('Error completing task task-999');
         });
     });
 
