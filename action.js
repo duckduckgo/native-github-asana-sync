@@ -526,17 +526,7 @@ async function createAsanaTask() {
     const assignee = core.getInput('asana-task-assignee');
     const customFields = core.getInput('asana-task-custom-fields');
 
-    const result = await createTask(
-        client,
-        taskName,
-        taskDescription,
-        projectId,
-        sectionId,
-        tags,
-        collaborators,
-        assignee,
-        customFields,
-    );
+    const result = await createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee, customFields);
     if (result === null) {
         core.setFailed(`Failed to create Asana task: ${taskName}`);
     }

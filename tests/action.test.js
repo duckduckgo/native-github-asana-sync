@@ -262,9 +262,7 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalled();
-            expect(core.setFailed).toHaveBeenCalledWith(
-                `Failed to post comment on Asana task ${mockAsanaCreatedTask.data.gid}`,
-            );
+            expect(core.setFailed).toHaveBeenCalledWith(`Failed to post comment on Asana task ${mockAsanaCreatedTask.data.gid}`);
         });
     });
 
@@ -671,9 +669,7 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.tasks.addProjectForTask).toHaveBeenCalledTimes(3);
-            expect(core.setFailed).toHaveBeenCalledWith(
-                `Failed to add the following tasks to project ${mockAsanaProject}: task-def`,
-            );
+            expect(core.setFailed).toHaveBeenCalledWith(`Failed to add the following tasks to project ${mockAsanaProject}: task-def`);
         });
     });
 
@@ -837,9 +833,7 @@ describe('GitHub Asana Sync Action', () => {
             await action();
 
             expect(mockAsanaClient.tasks.createTask).toHaveBeenCalled();
-            expect(core.setFailed).toHaveBeenCalledWith(
-                `Failed to post comment on Asana task ${mockAsanaCreatedTask.data.gid}`,
-            );
+            expect(core.setFailed).toHaveBeenCalledWith(`Failed to post comment on Asana task ${mockAsanaCreatedTask.data.gid}`);
         });
     });
 
