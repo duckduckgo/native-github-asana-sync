@@ -9,6 +9,15 @@ inputs:
         type: string
     asana_pat:
         required: true
+    user-map:
+        description: >-
+            Optional JSON map of GitHub logins to Asana user GIDs. When set,
+            a PR review comment that @-mentions a mapped user is forwarded to
+            the linked Asana task as a real Asana @-mention. When empty
+            (default) this forwarding is skipped and only the canned
+            approved/changes-requested/dismissed notes are posted.
+        required: false
+        default: '{}'
 
 runs:
     using: 'composite'
@@ -51,4 +60,29 @@ runs:
               asana-pat: ${{ inputs.asana_pat }}
               asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
               asana-task-comment: 'PR: ${{ github.event.pull_request.html_url }} review has been dismissed.'
+              asana-task-comment-pinned: false
+
+        # Gate on @-mentions of users in user-map and build the @-mention comment.
+        # Works for both review summaries and inline review comments.
+        # `!cancelled()` so mention forwarding runs regardless of whether the
+        # canned approved/changes-requested/dismissed steps ran or failed —
+        # it does not depend on them.
+        - name: Build @-mention comment
+          if: ${{ !cancelled() }}
+          uses: ./native-github-asana-sync
+          id: build-mention-comment
+          with:
+              action: 'build-mention-comment'
+              user-map: ${{ inputs.user-map }}
+
+        - name: Post @-mention comment to Asana Task
+          if: ${{ !cancelled() && steps.build-mention-comment.outputs.shouldPost == 'true' && steps.find-asana-task-id.outputs.asanaTaskId != '' }}
+          uses: ./native-github-asana-sync
+          id: post-comment-pr-mention
+          with:
+              action: 'post-comment-asana-task'
+              asana-pat: ${{ inputs.asana_pat }}
+              asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
+              asana-task-comment: ${{ steps.build-mention-comment.outputs.mentionComment }}
+              asana-task-comment-is-html: true
               asana-task-comment-pinned: false
