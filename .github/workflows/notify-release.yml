@@ -8,7 +8,7 @@ on:
             tag_name:
                 description: 'Release tag to simulate'
                 required: true
-                default: 'v2.5.1'
+                default: 'v2.5.2'
             release_body:
                 description: 'Release notes body'
                 required: false
@@ -16,11 +16,11 @@ on:
             release_url:
                 description: 'Release HTML URL'
                 required: false
-                default: 'https://github.com/duckduckgo/native-github-asana-sync/releases/tag/v2.5.1'
+                default: 'https://github.com/duckduckgo/native-github-asana-sync/releases/tag/v2.5.2'
             release_name:
                 description: 'Release name/title'
                 required: false
-                default: 'v2.5.1'
+                default: 'v2.5.2'
 
 env:
     RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag_name }}
