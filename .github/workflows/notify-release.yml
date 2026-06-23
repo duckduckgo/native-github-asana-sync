@@ -3,6 +3,30 @@ name: Notify Teams of New Release
 on:
     release:
         types: [published]
+    workflow_dispatch:
+        inputs:
+            tag_name:
+                description: 'Release tag to simulate'
+                required: true
+                default: 'v2.5.2'
+            release_body:
+                description: 'Release notes body'
+                required: false
+                default: 'Manual test run of notify-release workflow'
+            release_url:
+                description: 'Release HTML URL'
+                required: false
+                default: 'https://github.com/duckduckgo/native-github-asana-sync/releases/tag/v2.5.2'
+            release_name:
+                description: 'Release name/title'
+                required: false
+                default: 'v2.5.2'
+
+env:
+    RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag_name }}
+    RELEASE_NAME: ${{ github.event.release.name || github.event.release.tag_name || inputs.tag_name || inputs.release_name }}
+    RELEASE_BODY: ${{ github.event.release.body || inputs.release_body }}
+    RELEASE_URL: ${{ github.event.release.html_url || inputs.release_url }}
 
 jobs:
     notify-teams:
@@ -13,68 +37,82 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Get release information
-              id: release-info
+            - name: Check for breaking release
+              id: breaking
+              env:
+                  GH_TOKEN: ${{ github.token }}
               run: |
-                  echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-                  echo "release_url=${{ github.event.release.html_url }}" >> $GITHUB_OUTPUT
-                  echo "release_name=${{ github.event.release.name }}" >> $GITHUB_OUTPUT
-
-            - name: Create task description
-              id: task-description
-              run: |
-                  DESCRIPTION="🚀 **New Asana <> Github Integration Release Available**
-
-                  **Version:** ${{ steps.release-info.outputs.version }}
-                  **Release:** ${{ steps.release-info.outputs.release_name }}
-
-                  **What's New:**
-                  ${{ github.event.release.body }}
-
-                  **Action Required:**
-                  - Review the release notes above
-                  - Update your workflows to use the new version: \`${{ github.repository }}@${{ steps.release-info.outputs.version }}\`
-                  - Test the updated workflows in a development environment first
-
-                  **Links:**
-                  - 📋 [Release Notes](${{ steps.release-info.outputs.release_url }})
-
-                  **Support:**
-                  If you encounter any issues, please create an issue in the [GitHub repository](https://github.com/${{ github.repository }}/issues)."
-
-                  # Save multiline description to output
-                  echo "description<<EOF" >> $GITHUB_OUTPUT
-                  echo "$DESCRIPTION" >> $GITHUB_OUTPUT
-                  echo "EOF" >> $GITHUB_OUTPUT
+                  CURRENT="${{ env.RELEASE_TAG }}"
+                  PREVIOUS=$(gh release list --repo "${{ github.repository }}" --limit 10 --json tagName \
+                      -q ".[] | select(.tagName != \"$CURRENT\") | .tagName" | head -1)
+                  if [ -z "$PREVIOUS" ]; then
+                      echo "No previous release found; treating as non-breaking."
+                      exit 0
+                  fi
+                  CURRENT_MAJOR=$(echo "$CURRENT" | sed -E 's/^v?([0-9]+).*/\1/')
+                  PREVIOUS_MAJOR=$(echo "$PREVIOUS" | sed -E 's/^v?([0-9]+).*/\1/')
+                  if [ "$CURRENT_MAJOR" -gt "$PREVIOUS_MAJOR" ]; then
+                      {
+                          echo 'warning<<EOF'
+                          echo "⚠️ Breaking release (major version bump from ${PREVIOUS} to ${CURRENT}). Review release notes carefully before updating your workflows."
+                          echo 'EOF'
+                      } >> "$GITHUB_OUTPUT"
+                  fi
 
             # Android Team
             - name: Create Asana task for Android team
+              id: android-task
               uses: ./
               with:
-                  asana-pat: ${{ secrets.ASANA_PAT_TEST }}
-                  asana-project: '1209454604567606'
-                  asana-section: '1209455675160384'
-                  asana-task-name: '🤖 Asana <> Github Integration Update: ${{ steps.release-info.outputs.version }}'
-                  asana-task-description: ${{ steps.task-description.outputs.description }}
+                  asana-pat: ${{ secrets.ASANA_ACCESS_TOKEN }}
+                  asana-project: ${{ vars.GH_ANDROID_APP_PROJECT_ID }}
+                  asana-section: ${{ vars.GH_ANDROID_APP_INCOMING_SECTION_ID }}
+                  asana-task-name: '🤖 Asana <> Github Integration Update: ${{ env.RELEASE_NAME }}'
+                  asana-task-description: |
+                      New Asana <> Github Integration release: ${{ env.RELEASE_NAME }}
+
+                      ${{ steps.breaking.outputs.warning }}
+
+                      Release notes:
+                      ${{ env.RELEASE_BODY }}
+
+                      Action required:
+                      Update your workflows to use ${{ github.repository }}@${{ env.RELEASE_TAG }}
+
+                      Release: ${{ env.RELEASE_URL }}
                   action: 'create-asana-task'
-              continue-on-error: true
+
+            - name: Verify Android task was created
+              run: |
+                  TASK_ID="${{ steps.android-task.outputs.taskId }}"
+                  if [ -z "$TASK_ID" ] || [ "$TASK_ID" = "0" ]; then
+                      echo "::error::Failed to create Asana task for Android team"
+                      exit 1
+                  fi
 
             # Add more teams as needed...
             # - name: Create Asana task for [TEAM_NAME] team
             #   uses: ./
             #   with:
-            #     asana-pat: ${{ secrets.ASANA_PAT }}
+            #     asana-pat: ${{ secrets.ASANA_ACCESS_TOKEN }}
             #     asana-project: ${{ vars.[TEAM]_ASANA_PROJECT_ID }}
-            #     asana-section: ${{ vars.[TEAM]_ASANA_SECTION_ID }}
-            #     asana-task-name: "📢 Asana <> Github Integration Update: ${{ steps.release-info.outputs.version }}"
-            #     asana-task-description: ${{ steps.task-description.outputs.description }}
-            #     asana-tags: ${{ vars.GITHUB_ACTION_UPDATE_TAG_ID }}
-            #     asana-collaborators: ${{ vars.[TEAM]_TEAM_ASANA_IDS }}
+            #     asana-section: ${{ vars.[TEAM]_ASANA_INCOMING_SECTION_ID }}
+            #     asana-task-name: "📢 Asana <> Github Integration Update: ${{ env.RELEASE_NAME }}"
+            #     asana-task-description: |
+            #         New Asana <> Github Integration release: ${{ env.RELEASE_NAME }}
+            #
+            #         ${{ steps.breaking.outputs.warning }}
+            #
+            #         Release notes:
+            #         ${{ env.RELEASE_BODY }}
+            #
+            #         Action required:
+            #         Update your workflows to use ${{ github.repository }}@${{ env.RELEASE_TAG }}
+            #
+            #         Release: ${{ env.RELEASE_URL }}
             #     action: 'create-asana-task'
-            #   continue-on-error: true
 
             - name: Summary
               run: |
-                  echo "✅ Release notification tasks created for version ${{ steps.release-info.outputs.version }}"
-                  echo "📋 Teams notified via Asana tasks in their respective projects"
-                  echo "🔗 Release URL: ${{ steps.release-info.outputs.release_url }}"
+                  echo "Created Asana task ${{ steps.android-task.outputs.taskId }} for ${{ env.RELEASE_NAME }}"
+                  echo "Release URL: ${{ env.RELEASE_URL }}"
