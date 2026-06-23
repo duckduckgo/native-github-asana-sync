@@ -37,22 +37,47 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
+            - name: Check for breaking release
+              id: breaking
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  CURRENT="${{ env.RELEASE_TAG }}"
+                  PREVIOUS=$(gh release list --repo "${{ github.repository }}" --limit 10 --json tagName -q '.[].tagName' | grep -Fxv "$CURRENT" | head -1)
+                  if [ -z "$PREVIOUS" ]; then
+                      echo "No previous release found; treating as non-breaking."
+                      exit 0
+                  fi
+                  CURRENT_MAJOR=$(echo "$CURRENT" | sed -E 's/^v?([0-9]+).*/\1/')
+                  PREVIOUS_MAJOR=$(echo "$PREVIOUS" | sed -E 's/^v?([0-9]+).*/\1/')
+                  if [ "$CURRENT_MAJOR" -gt "$PREVIOUS_MAJOR" ]; then
+                      {
+                          echo 'warning<<EOF'
+                          echo "⚠️ Breaking release (major version bump from ${PREVIOUS} to ${CURRENT}). Review release notes carefully before updating your workflows."
+                          echo 'EOF'
+                      } >> "$GITHUB_OUTPUT"
+                  fi
+
             # Android Team
             - name: Create Asana task for Android team
               id: android-task
               uses: ./
               with:
                   asana-pat: ${{ secrets.ASANA_ACCESS_TOKEN }}
-                  asana-project: '1209454604567606'
-                  asana-section: '1209455675160384'
+                  asana-project: ${{ vars.GH_ANDROID_APP_PROJECT_ID }}
+                  asana-section: ${{ vars.GH_ANDROID_APP_INCOMING_SECTION_ID }}
                   asana-task-name: '🤖 Asana <> Github Integration Update: ${{ env.RELEASE_NAME }}'
                   asana-task-description: |
                       New Asana <> Github Integration release: ${{ env.RELEASE_NAME }}
 
+                      ${{ steps.breaking.outputs.warning }}
+
                       Release notes:
                       ${{ env.RELEASE_BODY }}
 
-                      Update workflows to: ${{ github.repository }}@${{ env.RELEASE_TAG }}
+                      Action required:
+                      Update your workflows to use ${{ github.repository }}@${{ env.RELEASE_TAG }}
+
                       Release: ${{ env.RELEASE_URL }}
                   action: 'create-asana-task'
 
@@ -66,15 +91,24 @@ jobs:
 
             # Add more teams as needed...
             # - name: Create Asana task for [TEAM_NAME] team
-            #   uses: duckduckgo/native-github-asana-sync@main
+            #   uses: ./
             #   with:
             #     asana-pat: ${{ secrets.ASANA_ACCESS_TOKEN }}
             #     asana-project: ${{ vars.[TEAM]_ASANA_PROJECT_ID }}
-            #     asana-section: ${{ vars.[TEAM]_ASANA_SECTION_ID }}
-            #     asana-task-name: "📢 Asana <> Github Integration Update: ${{ github.event.release.tag_name }}"
+            #     asana-section: ${{ vars.[TEAM]_ASANA_INCOMING_SECTION_ID }}
+            #     asana-task-name: "📢 Asana <> Github Integration Update: ${{ env.RELEASE_NAME }}"
             #     asana-task-description: |
-            #         New release: ${{ github.event.release.tag_name }}
-            #         ${{ github.event.release.body }}
+            #         New Asana <> Github Integration release: ${{ env.RELEASE_NAME }}
+            #
+            #         ${{ steps.breaking.outputs.warning }}
+            #
+            #         Release notes:
+            #         ${{ env.RELEASE_BODY }}
+            #
+            #         Action required:
+            #         Update your workflows to use ${{ github.repository }}@${{ env.RELEASE_TAG }}
+            #
+            #         Release: ${{ env.RELEASE_URL }}
             #     action: 'create-asana-task'
 
             - name: Summary
