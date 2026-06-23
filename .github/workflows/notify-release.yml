@@ -24,7 +24,7 @@ on:
 
 env:
     RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag_name }}
-    RELEASE_NAME: ${{ github.event.release.name || inputs.release_name || github.event.release.tag_name || inputs.tag_name }}
+    RELEASE_NAME: ${{ github.event.release.name || github.event.release.tag_name || inputs.tag_name || inputs.release_name }}
     RELEASE_BODY: ${{ github.event.release.body || inputs.release_body }}
     RELEASE_URL: ${{ github.event.release.html_url || inputs.release_url }}
 
@@ -43,7 +43,8 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: |
                   CURRENT="${{ env.RELEASE_TAG }}"
-                  PREVIOUS=$(gh release list --repo "${{ github.repository }}" --limit 10 --json tagName -q '.[].tagName' | grep -Fxv "$CURRENT" | head -1)
+                  PREVIOUS=$(gh release list --repo "${{ github.repository }}" --limit 10 --json tagName \
+                      -q ".[] | select(.tagName != \"$CURRENT\") | .tagName" | head -1)
                   if [ -z "$PREVIOUS" ]; then
                       echo "No previous release found; treating as non-breaking."
                       exit 0
