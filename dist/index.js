@@ -114,8 +114,10 @@ async function isTaskInProject(taskId, projectId) {
 
 async function findAsanaTasks() {
     const triggerPhrase = core.getInput('trigger-phrase');
-    const pullRequest = github.context.payload.pull_request;
-    if (!pullRequest?.body) {
+    // pull_request is present on PR / review / review_comment events; on
+    // issue_comment events the PR description is on issue.body instead.
+    const prBody = github.context.payload.pull_request?.body ?? github.context.payload.issue?.body;
+    if (!prBody) {
         console.info('No pull request context available for task discovery');
         return [];
     }
@@ -123,10 +125,10 @@ async function findAsanaTasks() {
     const specifiedProjectId = core.getInput('asana-project');
     const regex = new RegExp(regexString, 'g');
 
-    console.info('Looking for asana task link in body:\n', pullRequest.body, 'regex:\n', regexString);
+    console.info('Looking for asana task link in body:\n', prBody, 'regex:\n', regexString);
     const foundTasks = [];
     let parseAsanaUrl;
-    while ((parseAsanaUrl = regex.exec(pullRequest.body)) !== null) {
+    while ((parseAsanaUrl = regex.exec(prBody)) !== null) {
         const taskId = parseAsanaUrl.groups.task;
         const projectId = parseAsanaUrl.groups.project;
 
@@ -866,6 +868,10 @@ async function action() {
             await postCommentAsanaTask();
             break;
         }
+        case 'build-mention-comment': {
+            await buildMentionComment();
+            break;
+        }
         case 'send-mattermost-message': {
             await sendMattermostMessage();
             break;
@@ -885,6 +891,76 @@ async function action() {
         default:
             core.setFailed(`unexpected action ${action}`);
     }
+}
+
+// Gate a PR review comment on @-mentions of users in `user-map`, and, when a
+// mapped user is tagged, build an Asana HTML comment that @-mentions them.
+// Reads the comment text from the review (pull_request_review) or inline
+// comment (pull_request_review_comment) event payload. Sets two outputs:
+//   shouldPost     - 'true' only when a mapped user was @-mentioned
+//   mentionComment - the html_text body to post (when shouldPost is 'true')
+async function buildMentionComment() {
+    const eventName = github.context.eventName;
+    const payload = github.context.payload;
+
+    let body, permalink;
+    if (eventName === 'pull_request_review') {
+        body = payload.review?.body || '';
+        permalink = payload.review?.html_url;
+    } else if (eventName === 'pull_request_review_comment' || eventName === 'issue_comment') {
+        // Inline code comment, or a top-level PR conversation comment.
+        body = payload.comment?.body || '';
+        permalink = payload.comment?.html_url;
+    } else {
+        console.info(`Unsupported event ${eventName}; skipping mention sync.`);
+        return;
+    }
+
+    if (!body.trim()) {
+        console.info('Empty comment body; nothing to forward.');
+        return;
+    }
+
+    let map = {};
+    try {
+        const parsed = JSON.parse(core.getInput('user-map') || '{}');
+        // Accept only a plain object; null, arrays and primitives are valid JSON
+        // but would either crash Object.entries (null) or iterate nonsense.
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            map = parsed;
+        } else {
+            core.warning('user-map is not a JSON object; ignoring.');
+        }
+    } catch (e) {
+        core.warning(`Could not parse user-map: ${e}`);
+    }
+    const mapLower = {};
+    for (const [login, gid] of Object.entries(map)) {
+        mapLower[login.toLowerCase()] = gid;
+    }
+
+    // Collect @-mentions; the leading boundary avoids matching email local-parts.
+    const mentioned = new Set();
+    const re = /(^|[^A-Za-z0-9_@/])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/g;
+    let m;
+    while ((m = re.exec(body)) !== null) {
+        mentioned.add(m[2].toLowerCase());
+    }
+    const tagged = [...mentioned].filter((login) => mapLower[login]);
+
+    if (tagged.length === 0) {
+        console.info('No mapped user @-mentioned; skipping mention sync.');
+        return;
+    }
+
+    // Escape the URL so it can't break Asana's HTML parser.
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const mentionsHtml = tagged.map((login) => `<a data-asana-gid="${mapLower[login]}"/>`).join(' ');
+    const mentions = `<body>${mentionsHtml} has been mentioned in PR <a href="${esc(permalink)}">${esc(permalink)}</a></body>`;
+
+    core.setOutput('shouldPost', 'true');
+    core.setOutput('mentionComment', mentions);
+    console.info(`Mapped users tagged: ${tagged.join(', ')}`);
 }
 
 module.exports = {

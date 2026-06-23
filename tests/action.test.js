@@ -82,6 +82,7 @@ jest.mock('@actions/core', () => ({
     getInput: jest.fn(),
     setOutput: jest.fn(),
     setFailed: jest.fn(),
+    warning: jest.fn(),
 }));
 
 // Mock @actions/github
@@ -1103,6 +1104,119 @@ describe('GitHub Asana Sync Action', () => {
             expect(mockAsanaClient.tasks.getTask).toHaveBeenCalledTimes(2);
             expect(core.setOutput).toHaveBeenCalledWith('asanaTaskId', '3333'); // Should return first valid task
             expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should find the task from issue.body on issue_comment events', async () => {
+            mockGetInput({
+                action: 'find-asana-task-id',
+                'trigger-phrase': 'Closes',
+            });
+            // issue_comment payloads have no pull_request; the PR description
+            // is on issue.body instead.
+            github.context.payload.pull_request = undefined;
+            github.context.payload.issue = {
+                body: 'This PR fixes bugs.\n\nCloses https://app.asana.com/0/1111/2222',
+            };
+
+            await action();
+
+            expect(core.setOutput).toHaveBeenCalledWith('asanaTaskId', '2222');
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('action: build-mention-comment', () => {
+        function reviewPayload(body) {
+            return {
+                review: { body, html_url: 'https://github.com/o/r/pull/1#pullrequestreview-9' },
+                pull_request: { number: 1, html_url: 'https://github.com/o/r/pull/1' },
+            };
+        }
+
+        it('emits shouldPost and an @-mention comment when a mapped user is tagged', async () => {
+            mockGetInput({ action: 'build-mention-comment', 'user-map': '{"alice":"111"}' });
+            github.context.eventName = 'pull_request_review';
+            github.context.payload = reviewPayload('LGTM @Alice');
+
+            await action();
+
+            expect(core.setOutput).toHaveBeenCalledWith('shouldPost', 'true');
+            expect(core.setOutput).toHaveBeenCalledWith('mentionComment', expect.stringContaining('<a data-asana-gid="111"/>'));
+            expect(core.setOutput).toHaveBeenCalledWith('mentionComment', expect.stringContaining('has been mentioned in PR'));
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('does nothing when the mentioned user is not in the map', async () => {
+            mockGetInput({ action: 'build-mention-comment', 'user-map': '{"alice":"111"}' });
+            github.context.eventName = 'pull_request_review';
+            github.context.payload = reviewPayload('cc @bob');
+
+            await action();
+
+            expect(core.setOutput).not.toHaveBeenCalled();
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('does nothing on an empty comment body', async () => {
+            mockGetInput({ action: 'build-mention-comment', 'user-map': '{"alice":"111"}' });
+            github.context.eventName = 'pull_request_review';
+            github.context.payload = reviewPayload('   ');
+
+            await action();
+
+            expect(core.setOutput).not.toHaveBeenCalled();
+        });
+
+        it('does nothing with an empty user-map', async () => {
+            mockGetInput({ action: 'build-mention-comment', 'user-map': '{}' });
+            github.context.eventName = 'pull_request_review';
+            github.context.payload = reviewPayload('LGTM @Alice');
+
+            await action();
+
+            expect(core.setOutput).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['null', 'null'],
+            ['an array', '[1,2]'],
+            ['unparseable JSON', 'not json'],
+        ])('warns and does not crash when user-map is %s', async (_label, value) => {
+            mockGetInput({ action: 'build-mention-comment', 'user-map': value });
+            github.context.eventName = 'pull_request_review';
+            github.context.payload = reviewPayload('LGTM @Alice');
+
+            await action();
+
+            expect(core.warning).toHaveBeenCalled();
+            expect(core.setOutput).not.toHaveBeenCalled();
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('handles inline review comments (pull_request_review_comment)', async () => {
+            mockGetInput({ action: 'build-mention-comment', 'user-map': '{"alice":"111"}' });
+            github.context.eventName = 'pull_request_review_comment';
+            github.context.payload = {
+                comment: { body: 'nit @Alice', html_url: 'https://github.com/o/r/pull/1#discussion_r1' },
+                pull_request: { number: 1, html_url: 'https://github.com/o/r/pull/1' },
+            };
+
+            await action();
+
+            expect(core.setOutput).toHaveBeenCalledWith('shouldPost', 'true');
+        });
+
+        it('handles top-level PR comments (issue_comment)', async () => {
+            mockGetInput({ action: 'build-mention-comment', 'user-map': '{"alice":"111"}' });
+            github.context.eventName = 'issue_comment';
+            github.context.payload = {
+                comment: { body: 'hey @Alice', html_url: 'https://github.com/o/r/pull/1#issuecomment-1' },
+                issue: { number: 1, pull_request: { url: 'https://api.github.com/repos/o/r/pulls/1' } },
+            };
+
+            await action();
+
+            expect(core.setOutput).toHaveBeenCalledWith('shouldPost', 'true');
         });
     });
 

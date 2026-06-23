@@ -506,6 +506,61 @@ jobs:
                   asana-task-comment-is-html: true
 ```
 
+### Build @-mention comment
+
+Inspects the triggering PR review or comment and, when it `@`-mentions a GitHub user present in `user-map`, builds an Asana HTML comment that `@`-mentions the corresponding Asana user (via `data-asana-gid`). Supports the `pull_request_review`, `pull_request_review_comment` and `issue_comment` events — the comment text and link are read from the event payload automatically.
+
+It does not post anything itself; pair it with `find-asana-task-id` and `post-comment-asana-task` (with `asana-task-comment-is-html: true`).
+
+### `user-map`
+
+**Required** JSON string mapping GitHub logins to Asana user GIDs, e.g. `{"octocat":"1201234567890"}`. Only `@`-mentions of logins present in this map are forwarded; an empty map, a non-object value (`null`, array) or invalid JSON results in a warning and no output (it never fails the step).
+
+#### Outputs
+
+- `shouldPost` — set to `'true'` only when at least one mapped user was `@`-mentioned (unset otherwise).
+- `mentionComment` — the HTML `html_text` body to post, when `shouldPost` is `'true'`.
+
+#### Example Usage
+
+```yaml
+on:
+    pull_request_review:
+        types: [submitted]
+    pull_request_review_comment:
+        types: [created]
+    issue_comment:
+        types: [created]
+
+jobs:
+    test-job:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Find Asana task
+              uses: ./actions
+              id: find-asana-task-id
+              with:
+                  action: 'find-asana-task-id'
+                  trigger-phrase: 'Task/Issue URL:'
+
+            - name: Build @-mention comment
+              uses: ./actions
+              id: build-mention-comment
+              with:
+                  action: 'build-mention-comment'
+                  user-map: ${{ vars.GH_USER_MAP }}
+
+            - name: Post @-mention comment
+              if: ${{ !cancelled() && steps.build-mention-comment.outputs.shouldPost == 'true' && steps.find-asana-task-id.outputs.asanaTaskId != '' }}
+              uses: ./actions
+              with:
+                  action: 'post-comment-asana-task'
+                  asana-pat: ${{ secrets.asana_pat }}
+                  asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
+                  asana-task-comment: ${{ steps.build-mention-comment.outputs.mentionComment }}
+                  asana-task-comment-is-html: true
+```
+
 ### Send a message in Mattermost
 
 Sends a message to Mattermost
