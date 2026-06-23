@@ -179,12 +179,14 @@ async function createTaskWithComment(client, name, description, comment, project
         };
         const opts = {};
 
-        client.tasks.createTask(body, opts).then((result) => {
-            console.log('task created', result.data.gid);
-            return createStory(client, result.data.gid, comment, true);
-        });
+        const result = await client.tasks.createTask(body, opts);
+        const taskId = result.data.gid;
+        console.log('task created', taskId);
+        const story = await createStory(client, taskId, comment, true);
+        return { taskId, commentFailed: story == null };
     } catch (error) {
         console.error('rejecting promise', error);
+        return null;
     }
 }
 
@@ -199,7 +201,13 @@ async function createIssueTask() {
     const taskName = `Github Issue: ${issue.title}`;
     const taskComment = `Link to Issue: ${issue.html_url}`;
 
-    return createTaskWithComment(client, taskName, taskDescription, taskComment, asanaProjectId);
+    const result = await createTaskWithComment(client, taskName, taskDescription, taskComment, asanaProjectId);
+    if (result == null) {
+        core.setFailed(`Failed to create Asana task: ${taskName}`);
+    } else if (result.commentFailed) {
+        core.setFailed(`Failed to post comment on Asana task ${result.taskId}`);
+    }
+    return result;
 }
 
 async function notifyPRApproved() {
@@ -210,9 +218,17 @@ async function notifyPRApproved() {
     const foundTasks = await findAsanaTasks();
 
     const comments = [];
+    const failures = [];
     for (const taskId of foundTasks) {
-        const comment = createStory(client, taskId, taskComment, false);
+        const comment = await createStory(client, taskId, taskComment, false);
+        if (comment == null) {
+            failures.push(taskId);
+        }
         comments.push(comment);
+    }
+
+    if (failures.length > 0) {
+        core.setFailed(`Failed to post PR approved comments to tasks: ${failures.join(', ')}`);
     }
     return comments;
 }
@@ -230,9 +246,17 @@ async function addTaskToAsanaProject() {
         return;
     }
 
+    const failures = [];
     for (const taskId of taskIds) {
         console.info(`Adding task ${taskId} to project ${projectId}`);
-        await addTaskToProject(client, taskId, projectId, sectionId);
+        const result = await addTaskToProject(client, taskId, projectId, sectionId);
+        if (!result) {
+            failures.push(taskId);
+        }
+    }
+
+    if (failures.length > 0) {
+        core.setFailed(`Failed to add the following tasks to project ${projectId}: ${failures.join(', ')}`);
     }
 }
 
@@ -313,9 +337,17 @@ async function addCommentToPRTask() {
     const foundTasks = await findAsanaTasks();
 
     const comments = [];
+    const failures = [];
     for (const taskId of foundTasks) {
-        const comment = createStory(client, taskId, taskComment, isPinned);
+        const comment = await createStory(client, taskId, taskComment, isPinned);
+        if (comment == null) {
+            failures.push(taskId);
+        }
         comments.push(comment);
+    }
+
+    if (failures.length > 0) {
+        core.setFailed(`Failed to post PR comments to tasks: ${failures.join(', ')}`);
     }
     return comments;
 }
@@ -331,7 +363,13 @@ async function createPullRequestTask() {
     const taskName = `Community Pull Request: ${pullRequest.title}`;
     const taskComment = `Link to Pull Request: ${pullRequest.html_url}`;
 
-    return createTaskWithComment(client, taskName, taskDescription, taskComment, asanaProjectId);
+    const result = await createTaskWithComment(client, taskName, taskDescription, taskComment, asanaProjectId);
+    if (result == null) {
+        core.setFailed(`Failed to create Asana task: ${taskName}`);
+    } else if (result.commentFailed) {
+        core.setFailed(`Failed to post comment on Asana task ${result.taskId}`);
+    }
+    return result;
 }
 
 async function completePRTask() {
@@ -340,10 +378,17 @@ async function completePRTask() {
     const foundTasks = await findAsanaTasks();
 
     const taskIds = [];
+    const failures = [];
     for (const taskId of foundTasks) {
         console.info('marking task', taskId, isComplete ? 'complete' : 'incomplete');
-        await completeAsanaTask(taskId, isComplete);
+        const ok = await completeAsanaTask(taskId, isComplete);
+        if (!ok) {
+            failures.push(taskId);
+        }
         taskIds.push(taskId);
+    }
+    if (failures.length > 0) {
+        core.setFailed(`Failed to mark tasks ${isComplete ? 'complete' : 'incomplete'}: ${failures.join(', ')}`);
     }
     return taskIds;
 }
@@ -391,23 +436,20 @@ async function getLatestRepositoryRelease() {
 }
 
 async function findTaskInSection(client, sectionId, name) {
-    let existingTaskId = '0';
     try {
         console.log('searching tasks in section', sectionId);
-        await client.tasks.getTasksForSection(sectionId).then((result) => {
-            const task = result.data.find((task) => task.name === name);
-            if (!task) {
-                console.log('task not found');
-                existingTaskId = '0';
-            } else {
-                console.info('task found', task.gid);
-                existingTaskId = task.gid;
-            }
-        });
+        const result = await client.tasks.getTasksForSection(sectionId);
+        const task = result.data.find((task) => task.name === name);
+        if (!task) {
+            console.log('task not found');
+            return '0';
+        }
+        console.info('task found', task.gid);
+        return task.gid;
     } catch (error) {
         console.error('rejecting promise', error);
+        return null;
     }
-    return existingTaskId;
 }
 
 async function createTask(
@@ -444,6 +486,9 @@ async function createTask(
     if (sectionId) {
         console.log('checking for duplicate task before creating a new one', name);
         const existingTaskId = await findTaskInSection(client, sectionId, name);
+        if (existingTaskId === null) {
+            return null;
+        }
         if (existingTaskId !== '0') {
             console.log('task already exists, skipping');
             core.setOutput('taskId', existingTaskId);
@@ -458,18 +503,17 @@ async function createTask(
     const opts = {};
 
     console.log(`creating new task with options:='${JSON.stringify(taskOpts)}'`);
-    let createdTaskId = '0';
     try {
-        await client.tasks.createTask(body, opts).then((result) => {
-            createdTaskId = result.data.gid;
-            console.log('task created', createdTaskId);
-            core.setOutput('taskId', createdTaskId);
-            core.setOutput('duplicate', false);
-        });
+        const result = await client.tasks.createTask(body, opts);
+        const createdTaskId = result.data.gid;
+        console.log('task created', createdTaskId);
+        core.setOutput('taskId', createdTaskId);
+        core.setOutput('duplicate', false);
+        return createdTaskId;
     } catch (error) {
         console.error('rejecting promise', JSON.stringify(error));
+        return null;
     }
-    return createdTaskId;
 }
 
 async function createAsanaTask() {
@@ -484,7 +528,11 @@ async function createAsanaTask() {
     const assignee = core.getInput('asana-task-assignee');
     const customFields = core.getInput('asana-task-custom-fields');
 
-    return createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee, customFields);
+    const result = await createTask(client, taskName, taskDescription, projectId, sectionId, tags, collaborators, assignee, customFields);
+    if (result === null) {
+        core.setFailed(`Failed to create Asana task: ${taskName}`);
+    }
+    return result;
 }
 
 function matchesPattern(pattern, filePath) {
@@ -750,7 +798,11 @@ async function markAsanaTaskComplete() {
     const taskId = core.getInput('asana-task-id', { required: true });
     const isComplete = core.getInput('is-complete') === 'true';
 
-    return completeAsanaTask(taskId, isComplete);
+    const ok = await completeAsanaTask(taskId, isComplete);
+    if (!ok) {
+        core.setFailed(`Error completing task ${taskId}`);
+    }
+    return ok;
 }
 
 async function completeAsanaTask(taskId, completed) {
@@ -763,9 +815,10 @@ async function completeAsanaTask(taskId, completed) {
     const opts = {};
     try {
         await client.tasks.updateTask(body, taskId, opts);
+        return true;
     } catch (error) {
         console.error('Error completing task:', JSON.stringify(error));
-        core.setFailed(`Error completing task ${taskId}: ${error.message}`);
+        return false;
     }
 }
 
