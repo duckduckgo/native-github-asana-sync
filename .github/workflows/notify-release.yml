@@ -17,9 +17,14 @@ on:
                 description: 'Release HTML URL'
                 required: false
                 default: 'https://github.com/duckduckgo/native-github-asana-sync/releases/tag/v2.5.1'
+            release_name:
+                description: 'Release name/title'
+                required: false
+                default: 'v2.5.1'
 
 env:
     RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag_name }}
+    RELEASE_NAME: ${{ github.event.release.name || inputs.release_name || github.event.release.tag_name || inputs.tag_name }}
     RELEASE_BODY: ${{ github.event.release.body || inputs.release_body }}
     RELEASE_URL: ${{ github.event.release.html_url || inputs.release_url }}
 
@@ -40,14 +45,15 @@ jobs:
                   asana-pat: ${{ secrets.ASANA_ACCESS_TOKEN }}
                   asana-project: '1209454604567606'
                   asana-section: '1209455675160384'
-                  asana-task-name: '🤖 Asana <> Github Integration Update: ${{ env.RELEASE_TAG }}'
+                  asana-task-name: '🤖 Asana <> Github Integration Update: ${{ env.RELEASE_NAME }}'
                   asana-task-description: |
-                      New Asana <> Github Integration release: ${{ env.RELEASE_TAG }}
+                      New Asana <> Github Integration release: ${{ env.RELEASE_NAME }}
 
+                      Release notes:
                       ${{ env.RELEASE_BODY }}
 
                       Update workflows to: ${{ github.repository }}@${{ env.RELEASE_TAG }}
-                      Release notes: ${{ env.RELEASE_URL }}
+                      Release: ${{ env.RELEASE_URL }}
                   action: 'create-asana-task'
 
             - name: Verify Android task was created
@@ -73,5 +79,5 @@ jobs:
 
             - name: Summary
               run: |
-                  echo "Created Asana task ${{ steps.android-task.outputs.taskId }} for ${{ env.RELEASE_TAG }}"
+                  echo "Created Asana task ${{ steps.android-task.outputs.taskId }} for ${{ env.RELEASE_NAME }}"
                   echo "Release URL: ${{ env.RELEASE_URL }}"
