@@ -58,6 +58,15 @@ runs:
               asana-task-custom-fields: '{"1211720829744228":"1211720829744237"}' # Category:Pixels
               action: 'create-asana-task'
 
+        - name: Set Privacy Review task type and In progress status
+          uses: ./native-github-asana-sync
+          with:
+              asana-pat: ${{ inputs.asana_pat }}
+              asana-task-id: ${{ steps.create-review-task.outputs.taskId }}
+              asana-task-custom-type: '1216331193579792' # gitleaks:allow - public Asana custom type GID
+              asana-task-custom-type-status-option: '1216331193579786'
+              action: 'update-asana-task-type-status'
+
         - name: Add Privacy Review task to PR
           uses: actions/github-script@v7
           with:
@@ -103,3 +112,12 @@ runs:
                       privacy_triage_task_id: process.env.TRIAGE_TASK_ID,
                     },
                   });
+
+        - name: Set Privacy Review task Waiting for AI review status
+          if: ${{ steps.create-review-task.outputs.taskId != '' }}
+          uses: ./native-github-asana-sync
+          with:
+              asana-pat: ${{ inputs.asana_pat }}
+              asana-task-id: ${{ steps.create-review-task.outputs.taskId }}
+              asana-task-custom-type-status-option: '1216371081960403'
+              action: 'update-asana-task-type-status'

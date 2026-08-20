@@ -766,6 +766,96 @@ describe('GitHub Asana Sync Action', () => {
         });
     });
 
+    describe('action: update-asana-task-type-status', () => {
+        it('should set a custom type and status in one exact request', async () => {
+            mockGetInput({
+                action: 'update-asana-task-type-status',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-abc',
+                'asana-task-custom-type': 'type-gid',
+                'asana-task-custom-type-status-option': 'status-gid',
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                {
+                    data: {
+                        resource_subtype: 'custom',
+                        custom_type: 'type-gid',
+                        custom_type_status_option: 'status-gid',
+                    },
+                },
+                'task-abc',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should set only the status when no custom type is provided', async () => {
+            mockGetInput({
+                action: 'update-asana-task-type-status',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-abc',
+                'asana-task-custom-type-status-option': 'status-gid',
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledWith(
+                { data: { custom_type_status_option: 'status-gid' } },
+                'task-abc',
+                {},
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('should fail when task IDs or update fields are missing', async () => {
+            mockGetInput({
+                action: 'update-asana-task-type-status',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': ',',
+                'asana-task-custom-type-status-option': 'status-gid',
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith('No valid task IDs provided');
+
+            core.setFailed.mockClear();
+            mockGetInput({
+                action: 'update-asana-task-type-status',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-abc',
+            });
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
+            expect(core.setFailed).toHaveBeenCalledWith(
+                'At least one of asana-task-custom-type or asana-task-custom-type-status-option is required',
+            );
+        });
+
+        it('should stop after the first API rejection', async () => {
+            mockGetInput({
+                action: 'update-asana-task-type-status',
+                'asana-pat': 'mock-asana-pat',
+                'asana-task-id': 'task-abc, task-def',
+                'asana-task-custom-type-status-option': 'status-gid',
+            });
+            mockAsanaClient.tasks.updateTask.mockRejectedValueOnce(new Error('boom'));
+
+            await action();
+
+            expect(mockAsanaClient.tasks.updateTask).toHaveBeenCalledTimes(1);
+            expect(core.setFailed).toHaveBeenCalledWith(
+                'Error updating custom type/status on task task-abc: boom. Skipped remaining tasks: task-def.',
+            );
+        });
+    });
+
     describe('action: create-asana-pr-task', () => {
         it('should create an Asana task from a GitHub PR', async () => {
             mockGetInput({

@@ -36,6 +36,7 @@ This action integrates asana with github.
 - `get-asana-task-permalink` to get the permalink for a given Asana Task ID
 - `mark-asana-task-complete` to mark an Asana task as complete or incomplete
 - `update-task-custom-fields` to update custom field values on one or more existing Asana tasks
+- `update-asana-task-type-status` to apply an Asana custom task type and/or type status to existing tasks
 - `set-asana-custom-fields-from-diff` to set Asana custom field values on the PR's linked task(s) based on the files changed in the PR
 
 ### Create Asana task from Github Issue
