@@ -94,7 +94,7 @@ inputs:
         description: 'Asana custom task type GID to apply to existing task(s)'
         required: false
     asana-task-custom-type-status-option:
-        description: 'Asana custom task type status option GID to apply to existing task(s)'
+        description: 'Asana custom task type status option GID to apply to an existing task'
         required: false
 
 runs:

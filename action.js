@@ -297,17 +297,17 @@ async function updateTaskCustomFields(client, taskId, customFields) {
 
 async function updateAsanaTaskTypeStatusAction() {
     const client = buildAsanaClient();
-    const taskIds = getArrayFromInput(core.getInput('asana-task-id', { required: true }));
+    const taskId = core.getInput('asana-task-id', { required: true }).trim();
     const customType = core.getInput('asana-task-custom-type');
     const customTypeStatusOption = core.getInput('asana-task-custom-type-status-option');
 
-    if (taskIds.length === 0) {
-        core.setFailed('No valid task IDs provided');
+    if (!taskId) {
+        core.setFailed('No valid task ID provided');
         return;
     }
 
-    if (!customType && !customTypeStatusOption) {
-        core.setFailed('At least one of asana-task-custom-type or asana-task-custom-type-status-option is required');
+    if (!customTypeStatusOption) {
+        core.setFailed('asana-task-custom-type-status-option is required');
         return;
     }
 
@@ -315,22 +315,16 @@ async function updateAsanaTaskTypeStatusAction() {
         ? {
               resource_subtype: 'custom',
               custom_type: customType,
-              ...(customTypeStatusOption && { custom_type_status_option: customTypeStatusOption }),
+              custom_type_status_option: customTypeStatusOption,
           }
         : { custom_type_status_option: customTypeStatusOption };
 
-    for (let i = 0; i < taskIds.length; i++) {
-        const taskId = taskIds[i];
-        try {
-            console.info(`Updating custom type/status on task ${taskId}`);
-            await client.tasks.updateTask({ data }, taskId, {});
-        } catch (error) {
-            console.error(`Error updating custom type/status on task ${taskId}:`, JSON.stringify(error));
-            const remaining = taskIds.slice(i + 1);
-            const suffix = remaining.length ? ` Skipped remaining tasks: ${remaining.join(', ')}.` : '';
-            core.setFailed(`Error updating custom type/status on task ${taskId}: ${formatErrorMessage(error)}.${suffix}`);
-            return;
-        }
+    try {
+        console.info(`Updating custom type/status on task ${taskId}`);
+        await client.tasks.updateTask({ data }, taskId, {});
+    } catch (error) {
+        console.error(`Error updating custom type/status on task ${taskId}:`, JSON.stringify(error));
+        core.setFailed(`Error updating custom type/status on task ${taskId}: ${formatErrorMessage(error)}`);
     }
 }
 
