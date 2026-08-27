@@ -99,6 +99,7 @@ runs:
           env:
               PR_URL: ${{ github.event.pull_request.html_url }}
               TRIAGE_TASK_ID: ${{ steps.create-review-task.outputs.taskId }}
+              TEAM_NAME: ${{ inputs.team_name }}
           with:
               github-token: ${{ inputs.github_pat }}
               script: |
@@ -110,6 +111,7 @@ runs:
                     inputs: {
                       pr_url: process.env.PR_URL,
                       privacy_triage_task_id: process.env.TRIAGE_TASK_ID,
+                      team_name: process.env.TEAM_NAME,
                     },
                   });
 
