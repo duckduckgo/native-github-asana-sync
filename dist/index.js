@@ -301,6 +301,39 @@ async function updateTaskCustomFields(client, taskId, customFields) {
     await client.tasks.updateTask({ data: { custom_fields: customFields } }, taskId, {});
 }
 
+async function updateAsanaTaskTypeStatusAction() {
+    const client = buildAsanaClient();
+    const taskId = core.getInput('asana-task-id', { required: true }).trim();
+    const customType = core.getInput('asana-task-custom-type');
+    const customTypeStatusOption = core.getInput('asana-task-custom-type-status-option');
+
+    if (!taskId) {
+        core.setFailed('No valid task ID provided');
+        return;
+    }
+
+    if (!customTypeStatusOption) {
+        core.setFailed('asana-task-custom-type-status-option is required');
+        return;
+    }
+
+    const data = customType
+        ? {
+              resource_subtype: 'custom',
+              custom_type: customType,
+              custom_type_status_option: customTypeStatusOption,
+          }
+        : { custom_type_status_option: customTypeStatusOption };
+
+    try {
+        console.info(`Updating custom type/status on task ${taskId}`);
+        await client.tasks.updateTask({ data }, taskId, {});
+    } catch (error) {
+        console.error(`Error updating custom type/status on task ${taskId}:`, JSON.stringify(error));
+        core.setFailed(`Error updating custom type/status on task ${taskId}: ${formatErrorMessage(error)}`);
+    }
+}
+
 async function addTaskToProject(client, taskId, projectId, sectionId) {
     if (!sectionId) {
         console.info('adding asana task to project', projectId);
@@ -939,6 +972,10 @@ async function action() {
         }
         case 'update-task-custom-fields': {
             await updateTaskCustomFieldsAction();
+            break;
+        }
+        case 'update-asana-task-type-status': {
+            await updateAsanaTaskTypeStatusAction();
             break;
         }
         default:
