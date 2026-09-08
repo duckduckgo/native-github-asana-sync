@@ -810,20 +810,7 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setFailed).not.toHaveBeenCalled();
         });
 
-        it('should fail when the task ID or status is missing', async () => {
-            mockGetInput({
-                action: 'update-asana-task-type-status',
-                'asana-pat': 'mock-asana-pat',
-                'asana-task-id': ' ',
-                'asana-task-custom-type-status-option': 'status-gid',
-            });
-
-            await action();
-
-            expect(mockAsanaClient.tasks.updateTask).not.toHaveBeenCalled();
-            expect(core.setFailed).toHaveBeenCalledWith('No valid task ID provided');
-
-            core.setFailed.mockClear();
+        it('should fail when the status is missing', async () => {
             mockGetInput({
                 action: 'update-asana-task-type-status',
                 'asana-pat': 'mock-asana-pat',

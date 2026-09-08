@@ -114,12 +114,3 @@ runs:
                       team_name: process.env.TEAM_NAME,
                     },
                   });
-
-        - name: Set Privacy Review task Waiting for AI review status
-          if: ${{ steps.create-review-task.outputs.taskId != '' }}
-          uses: ./native-github-asana-sync
-          with:
-              asana-pat: ${{ inputs.asana_pat }}
-              asana-task-id: ${{ steps.create-review-task.outputs.taskId }}
-              asana-task-custom-type-status-option: '1216371081960403'
-              action: 'update-asana-task-type-status'

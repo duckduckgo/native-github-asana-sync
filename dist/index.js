@@ -303,14 +303,9 @@ async function updateTaskCustomFields(client, taskId, customFields) {
 
 async function updateAsanaTaskTypeStatusAction() {
     const client = buildAsanaClient();
-    const taskId = core.getInput('asana-task-id', { required: true }).trim();
+    const taskId = core.getInput('asana-task-id', { required: true });
     const customType = core.getInput('asana-task-custom-type');
     const customTypeStatusOption = core.getInput('asana-task-custom-type-status-option');
-
-    if (!taskId) {
-        core.setFailed('No valid task ID provided');
-        return;
-    }
 
     if (!customTypeStatusOption) {
         core.setFailed('asana-task-custom-type-status-option is required');
