@@ -90,6 +90,12 @@ inputs:
     asana-task-custom-fields:
         description: 'Asana task custom fields hash, encoded as a JSON string'
         required: false
+    asana-task-custom-type:
+        description: 'Asana custom task type GID to apply to existing task(s)'
+        required: false
+    asana-task-custom-type-status-option:
+        description: 'Asana custom task type status option GID to apply to an existing task'
+        required: false
 
 runs:
     using: 'node24'
