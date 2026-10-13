@@ -102,6 +102,8 @@ runs:
               TEAM_NAME: ${{ inputs.team_name }}
           with:
               github-token: ${{ inputs.github_pat }}
+              # privacy-review-automation lives on github.com, even when the caller runs on GHES
+              base-url: https://api.github.com
               script: |
                   await github.rest.actions.createWorkflowDispatch({
                     owner: 'duckduckgo',
