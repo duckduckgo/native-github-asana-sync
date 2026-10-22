@@ -1540,6 +1540,17 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setOutput).toHaveBeenCalledWith('shouldPost', 'true');
         });
 
+        it('stops paging once the reviewer is found', async () => {
+            const fullPage = Array.from({ length: 100 }, () => ({ user: { login: 'carol' }, state: 'COMMENTED' }));
+            fullPage[0] = { user: { login: 'alice' }, state: 'APPROVED' };
+            mockReviews(fullPage);
+
+            await action();
+
+            expect(mockOctokitRequest).toHaveBeenCalledTimes(1);
+            expect(core.setOutput).toHaveBeenCalledWith('shouldPost', 'true');
+        });
+
         it('does nothing when the reviewer is not in the map', async () => {
             github.context.payload = reviewRequestedPayload({ requested_reviewer: { login: 'carol' } });
 

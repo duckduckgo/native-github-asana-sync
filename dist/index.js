@@ -1063,8 +1063,7 @@ async function buildMentionComment() {
     console.info(`Mapped users tagged: ${tagged.join(', ')}`);
 }
 
-async function getSubmittedReviewers(githubClient, owner, repo, pullNumber) {
-    const reviewers = new Set();
+async function hasSubmittedReview(githubClient, owner, repo, pullNumber, reviewer) {
     const perPage = 100;
     let page = 1;
 
@@ -1080,19 +1079,15 @@ async function getSubmittedReviewers(githubClient, owner, repo, pullNumber) {
             },
         });
         const data = response.data || [];
-        for (const review of data) {
-            // A pending review is an unsubmitted draft, so it doesn't count.
-            if (review.state !== 'PENDING' && review.user?.login) {
-                reviewers.add(review.user.login.toLowerCase());
-            }
+        // A pending review is an unsubmitted draft, so it doesn't count.
+        if (data.some((review) => review.state !== 'PENDING' && review.user?.login?.toLowerCase() === reviewer.toLowerCase())) {
+            return true;
         }
         if (data.length < perPage) {
-            break;
+            return false;
         }
         page++;
     }
-
-    return reviewers;
 }
 
 // On a `pull_request` `review_requested` event, build an Asana HTML comment
@@ -1131,15 +1126,15 @@ async function buildReviewRerequestComment() {
     // Talk to the API of the host that sent the event, so this also works on GHES.
     const githubClient = new octokit.Octokit({ auth: githubPAT, baseUrl: github.context.apiUrl });
 
-    let submittedReviewers;
+    let hasReviewed;
     try {
-        submittedReviewers = await getSubmittedReviewers(githubClient, owner, repo, pullRequest.number);
+        hasReviewed = await hasSubmittedReview(githubClient, owner, repo, pullRequest.number, reviewer);
     } catch (error) {
         core.setFailed(`Failed to list reviews for PR #${pullRequest.number}: ${formatErrorMessage(error)}`);
         return;
     }
 
-    if (!submittedReviewers.has(reviewer.toLowerCase())) {
+    if (!hasReviewed) {
         console.info(`${reviewer} has not reviewed PR #${pullRequest.number} yet; this is a first request, skipping.`);
         return;
     }
