@@ -1,0 +1,53 @@
+name: Pull Request Review Re-requested
+# Note: callers must checkout this repo to `./native-github-asana-sync`
+# and trigger on `pull_request` with `types: [review_requested]`.
+inputs:
+    trigger-phrase:
+        required: true
+        type: string
+    asana_pat:
+        required: true
+    user-map:
+        description: >-
+            JSON map of GitHub logins to Asana user GIDs. When a review is
+            re-requested from a mapped user who has already reviewed the PR,
+            they are @-mentioned on the linked Asana task. Reviewers missing
+            from the map are skipped.
+        required: true
+    github_pat:
+        description: >-
+            Token used to list the PR's reviews, to tell a re-request apart
+            from a first request. Defaults to the workflow's GITHUB_TOKEN.
+        required: false
+        default: ${{ github.token }}
+
+runs:
+    using: 'composite'
+    steps:
+        - name: Build re-requested review comment
+          uses: ./native-github-asana-sync
+          id: build-review-rerequest-comment
+          with:
+              action: 'build-review-rerequest-comment'
+              github-pat: ${{ inputs.github_pat }}
+              user-map: ${{ inputs.user-map }}
+
+        - name: Find Asana Task in PR description
+          if: steps.build-review-rerequest-comment.outputs.shouldPost == 'true'
+          uses: ./native-github-asana-sync
+          id: find-asana-task-id
+          with:
+              action: 'find-asana-task-id'
+              trigger-phrase: ${{ inputs.trigger-phrase }}
+
+        - name: Post re-requested review comment to Asana Task
+          if: steps.build-review-rerequest-comment.outputs.shouldPost == 'true' && steps.find-asana-task-id.outputs.asanaTaskId != ''
+          uses: ./native-github-asana-sync
+          id: post-comment-pr-review-rerequested
+          with:
+              action: 'post-comment-asana-task'
+              asana-pat: ${{ inputs.asana_pat }}
+              asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
+              asana-task-comment: ${{ steps.build-review-rerequest-comment.outputs.mentionComment }}
+              asana-task-comment-is-html: true
+              asana-task-comment-pinned: false

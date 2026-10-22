@@ -1466,6 +1466,126 @@ describe('GitHub Asana Sync Action', () => {
         });
     });
 
+    describe('action: build-review-rerequest-comment', () => {
+        const userMap = '{"alice":"111","bob":"222"}';
+
+        function reviewRequestedPayload(overrides = {}) {
+            return {
+                action: 'review_requested',
+                requested_reviewer: { login: 'Alice' },
+                sender: { login: 'bob' },
+                pull_request: { number: 7, html_url: 'https://github.com/o/r/pull/7' },
+                ...overrides,
+            };
+        }
+
+        function mockReviews(...pages) {
+            for (const page of pages) {
+                mockOctokitRequest.mockResolvedValueOnce({ data: page });
+            }
+        }
+
+        beforeEach(() => {
+            mockGetInput({ action: 'build-review-rerequest-comment', 'user-map': userMap, 'github-pat': 'mock-github-pat' });
+            github.context.eventName = 'pull_request';
+            github.context.repo = { owner: 'o', repo: 'r' };
+            github.context.payload = reviewRequestedPayload();
+        });
+
+        it('mentions the reviewer and requester when the reviewer has already reviewed', async () => {
+            mockReviews([{ user: { login: 'alice' }, state: 'CHANGES_REQUESTED' }]);
+
+            await action();
+
+            expect(mockOctokitRequest).toHaveBeenCalledWith(
+                'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews',
+                expect.objectContaining({ owner: 'o', repo: 'r', pull_number: 7 }),
+            );
+            expect(core.setOutput).toHaveBeenCalledWith('shouldPost', 'true');
+            expect(core.setOutput).toHaveBeenCalledWith(
+                'mentionComment',
+                '<body><a data-asana-gid="111"/>, <a data-asana-gid="222"/> re-requested your review of <a href="https://github.com/o/r/pull/7">https://github.com/o/r/pull/7</a></body>',
+            );
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('does nothing on a first review request', async () => {
+            mockReviews([{ user: { login: 'carol' }, state: 'APPROVED' }]);
+
+            await action();
+
+            expect(core.setOutput).not.toHaveBeenCalled();
+            expect(core.setFailed).not.toHaveBeenCalled();
+        });
+
+        it('ignores pending (unsubmitted) reviews', async () => {
+            mockReviews([{ user: { login: 'alice' }, state: 'PENDING' }]);
+
+            await action();
+
+            expect(core.setOutput).not.toHaveBeenCalled();
+        });
+
+        it('finds reviews on later pages', async () => {
+            const fullPage = Array.from({ length: 100 }, () => ({ user: { login: 'carol' }, state: 'COMMENTED' }));
+            mockReviews(fullPage, [{ user: { login: 'alice' }, state: 'COMMENTED' }]);
+
+            await action();
+
+            expect(mockOctokitRequest).toHaveBeenCalledTimes(2);
+            expect(mockOctokitRequest).toHaveBeenLastCalledWith(
+                'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews',
+                expect.objectContaining({ page: 2 }),
+            );
+            expect(core.setOutput).toHaveBeenCalledWith('shouldPost', 'true');
+        });
+
+        it('falls back to the GitHub login when the requester is not mapped', async () => {
+            github.context.payload = reviewRequestedPayload({ sender: { login: 'dave' } });
+            mockReviews([{ user: { login: 'alice' }, state: 'COMMENTED' }]);
+
+            await action();
+
+            expect(core.setOutput).toHaveBeenCalledWith('mentionComment', expect.stringContaining(', @dave re-requested your review'));
+        });
+
+        it('does nothing when the reviewer is not in the map', async () => {
+            github.context.payload = reviewRequestedPayload({ requested_reviewer: { login: 'carol' } });
+
+            await action();
+
+            expect(mockOctokitRequest).not.toHaveBeenCalled();
+            expect(core.setOutput).not.toHaveBeenCalled();
+        });
+
+        it('does nothing for team review requests', async () => {
+            github.context.payload = reviewRequestedPayload({ requested_reviewer: undefined, requested_team: { slug: 'team' } });
+
+            await action();
+
+            expect(mockOctokitRequest).not.toHaveBeenCalled();
+            expect(core.setOutput).not.toHaveBeenCalled();
+        });
+
+        it('does nothing for other events', async () => {
+            github.context.payload = reviewRequestedPayload({ action: 'opened' });
+
+            await action();
+
+            expect(mockOctokitRequest).not.toHaveBeenCalled();
+            expect(core.setOutput).not.toHaveBeenCalled();
+        });
+
+        it('fails when the reviews cannot be listed', async () => {
+            mockOctokitRequest.mockRejectedValueOnce(new Error('Bad credentials'));
+
+            await action();
+
+            expect(core.setFailed).toHaveBeenCalledWith('Failed to list reviews for PR #7: Bad credentials');
+            expect(core.setOutput).not.toHaveBeenCalled();
+        });
+    });
+
     describe('action: find-asana-task-ids', () => {
         it('should find all Asana task IDs based on trigger phrase', async () => {
             mockGetInput({
