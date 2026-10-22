@@ -1144,22 +1144,12 @@ async function buildReviewRerequestComment() {
         return;
     }
 
-    const requester = payload.sender?.login;
-    const requesterGid = requester ? mapLower[requester.toLowerCase()] : undefined;
-    let requesterHtml;
-    if (requesterGid) {
-        requesterHtml = `<a data-asana-gid="${requesterGid}"/>`;
-    } else if (requester) {
-        requesterHtml = escapeHtml(`@${requester}`);
-    } else {
-        requesterHtml = 'The author';
-    }
     const url = escapeHtml(pullRequest.html_url);
-    const comment = `<body><a data-asana-gid="${reviewerGid}"/>, ${requesterHtml} re-requested your review of <a href="${url}">${url}</a></body>`;
+    const comment = `<body><a data-asana-gid="${reviewerGid}"/>, your review has been re-requested on <a href="${url}">${url}</a></body>`;
 
     core.setOutput('shouldPost', 'true');
     core.setOutput('mentionComment', comment);
-    console.info(`Review re-requested from ${reviewer} by ${requester}`);
+    console.info(`Review re-requested from ${reviewer}`);
 }
 
 module.exports = {

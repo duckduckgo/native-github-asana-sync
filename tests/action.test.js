@@ -1492,7 +1492,7 @@ describe('GitHub Asana Sync Action', () => {
             github.context.payload = reviewRequestedPayload();
         });
 
-        it('mentions the reviewer and requester when the reviewer has already reviewed', async () => {
+        it('mentions only the reviewer when they have already reviewed', async () => {
             mockReviews([{ user: { login: 'alice' }, state: 'CHANGES_REQUESTED' }]);
 
             await action();
@@ -1504,7 +1504,7 @@ describe('GitHub Asana Sync Action', () => {
             expect(core.setOutput).toHaveBeenCalledWith('shouldPost', 'true');
             expect(core.setOutput).toHaveBeenCalledWith(
                 'mentionComment',
-                '<body><a data-asana-gid="111"/>, <a data-asana-gid="222"/> re-requested your review of <a href="https://github.com/o/r/pull/7">https://github.com/o/r/pull/7</a></body>',
+                '<body><a data-asana-gid="111"/>, your review has been re-requested on <a href="https://github.com/o/r/pull/7">https://github.com/o/r/pull/7</a></body>',
             );
             expect(core.setFailed).not.toHaveBeenCalled();
         });
@@ -1538,15 +1538,6 @@ describe('GitHub Asana Sync Action', () => {
                 expect.objectContaining({ page: 2 }),
             );
             expect(core.setOutput).toHaveBeenCalledWith('shouldPost', 'true');
-        });
-
-        it('falls back to the GitHub login when the requester is not mapped', async () => {
-            github.context.payload = reviewRequestedPayload({ sender: { login: 'dave' } });
-            mockReviews([{ user: { login: 'alice' }, state: 'COMMENTED' }]);
-
-            await action();
-
-            expect(core.setOutput).toHaveBeenCalledWith('mentionComment', expect.stringContaining(', @dave re-requested your review'));
         });
 
         it('does nothing when the reviewer is not in the map', async () => {
