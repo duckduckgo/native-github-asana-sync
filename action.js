@@ -947,6 +947,10 @@ async function action() {
             await buildMentionComment();
             break;
         }
+        case 'build-review-rerequest-comment': {
+            await buildReviewRerequestComment();
+            break;
+        }
         case 'send-mattermost-message': {
             await sendMattermostMessage();
             break;
@@ -970,6 +974,35 @@ async function action() {
         default:
             core.setFailed(`unexpected action ${action}`);
     }
+}
+
+// Parse the `user-map` input (GitHub login -> Asana user GID) into a map keyed
+// by lowercased login. Never fails the step: an invalid map is warned about and
+// treated as empty.
+function parseUserMap() {
+    let map = {};
+    try {
+        const parsed = JSON.parse(core.getInput('user-map') || '{}');
+        // Accept only a plain object; null, arrays and primitives are valid JSON
+        // but would either crash Object.entries (null) or iterate nonsense.
+        if (isPlainObject(parsed)) {
+            map = parsed;
+        } else {
+            core.warning('user-map is not a JSON object; ignoring.');
+        }
+    } catch (e) {
+        core.warning(`Could not parse user-map: ${e}`);
+    }
+    const mapLower = {};
+    for (const [login, gid] of Object.entries(map)) {
+        mapLower[login.toLowerCase()] = gid;
+    }
+    return mapLower;
+}
+
+// Escape text so it can't break Asana's HTML parser.
+function escapeHtml(value) {
+    return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // Gate a PR review comment on @-mentions of users in `user-map`, and, when a
@@ -1000,23 +1033,7 @@ async function buildMentionComment() {
         return;
     }
 
-    let map = {};
-    try {
-        const parsed = JSON.parse(core.getInput('user-map') || '{}');
-        // Accept only a plain object; null, arrays and primitives are valid JSON
-        // but would either crash Object.entries (null) or iterate nonsense.
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            map = parsed;
-        } else {
-            core.warning('user-map is not a JSON object; ignoring.');
-        }
-    } catch (e) {
-        core.warning(`Could not parse user-map: ${e}`);
-    }
-    const mapLower = {};
-    for (const [login, gid] of Object.entries(map)) {
-        mapLower[login.toLowerCase()] = gid;
-    }
+    const mapLower = parseUserMap();
 
     // Collect @-mentions; the leading boundary avoids matching email local-parts.
     const mentioned = new Set();
@@ -1032,14 +1049,96 @@ async function buildMentionComment() {
         return;
     }
 
-    // Escape the URL so it can't break Asana's HTML parser.
-    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const mentionsHtml = tagged.map((login) => `<a data-asana-gid="${mapLower[login]}"/>`).join(' ');
-    const mentions = `<body>${mentionsHtml} has been mentioned in PR <a href="${esc(permalink)}">${esc(permalink)}</a></body>`;
+    const mentions = `<body>${mentionsHtml} has been mentioned in PR <a href="${escapeHtml(permalink)}">${escapeHtml(permalink)}</a></body>`;
 
     core.setOutput('shouldPost', 'true');
     core.setOutput('mentionComment', mentions);
     console.info(`Mapped users tagged: ${tagged.join(', ')}`);
+}
+
+async function hasSubmittedReview(githubClient, owner, repo, pullNumber, reviewer) {
+    const perPage = 100;
+    let page = 1;
+
+    while (true) {
+        const response = await githubClient.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+            owner,
+            repo,
+            pull_number: pullNumber,
+            per_page: perPage,
+            page,
+            headers: {
+                'X-GitHub-Api-Version': '2022-11-28',
+            },
+        });
+        const data = response.data || [];
+        // A pending review is an unsubmitted draft, so it doesn't count.
+        if (data.some((review) => review.state !== 'PENDING' && review.user?.login?.toLowerCase() === reviewer.toLowerCase())) {
+            return true;
+        }
+        if (data.length < perPage) {
+            return false;
+        }
+        page++;
+    }
+}
+
+// On a `pull_request` `review_requested` event, build an Asana HTML comment
+// that @-mentions the requested reviewer, but only when the review is a
+// re-request. GitHub sends the same event for first requests and re-requests,
+// so a request counts as a re-request when the reviewer has already submitted
+// a review on the PR. Sets the same outputs as build-mention-comment:
+//   shouldPost     - 'true' only for a re-request of a mapped reviewer
+//   mentionComment - the html_text body to post (when shouldPost is 'true')
+async function buildReviewRerequestComment() {
+    const eventName = github.context.eventName;
+    const payload = github.context.payload;
+
+    if (eventName !== 'pull_request' || payload.action !== 'review_requested') {
+        console.info(`Unsupported event ${eventName}.${payload.action}; skipping review re-request sync.`);
+        return;
+    }
+
+    const reviewer = payload.requested_reviewer?.login;
+    if (!reviewer) {
+        // Team review requests carry requested_team instead of a user.
+        console.info('Review was not requested from a user; skipping review re-request sync.');
+        return;
+    }
+
+    const mapLower = parseUserMap();
+    const reviewerGid = mapLower[reviewer.toLowerCase()];
+    if (!reviewerGid) {
+        console.info(`Reviewer ${reviewer} is not in user-map; skipping review re-request sync.`);
+        return;
+    }
+
+    const pullRequest = payload.pull_request;
+    const { owner, repo } = github.context.repo;
+    const githubPAT = core.getInput('github-pat', { required: true });
+    // Talk to the API of the host that sent the event, so this also works on GHES.
+    const githubClient = new octokit.Octokit({ auth: githubPAT, baseUrl: github.context.apiUrl });
+
+    let hasReviewed;
+    try {
+        hasReviewed = await hasSubmittedReview(githubClient, owner, repo, pullRequest.number, reviewer);
+    } catch (error) {
+        core.setFailed(`Failed to list reviews for PR #${pullRequest.number}: ${formatErrorMessage(error)}`);
+        return;
+    }
+
+    if (!hasReviewed) {
+        console.info(`${reviewer} has not reviewed PR #${pullRequest.number} yet; this is a first request, skipping.`);
+        return;
+    }
+
+    const url = escapeHtml(pullRequest.html_url);
+    const comment = `<body><a data-asana-gid="${reviewerGid}"/>, your review has been re-requested on <a href="${url}">${url}</a></body>`;
+
+    core.setOutput('shouldPost', 'true');
+    core.setOutput('mentionComment', comment);
+    console.info(`Review re-requested from ${reviewer}`);
 }
 
 module.exports = {
