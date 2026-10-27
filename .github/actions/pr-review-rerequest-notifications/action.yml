@@ -41,7 +41,7 @@ runs:
               trigger-phrase: ${{ inputs.trigger-phrase }}
 
         - name: Post re-requested review comment to Asana Task
-          if: steps.build-review-rerequest-comment.outputs.shouldPost == 'true' && steps.find-asana-task-id.outputs.asanaTaskId != ''
+          if: steps.build-review-rerequest-comment.outputs.shouldPost == 'true'
           uses: ./native-github-asana-sync
           id: post-comment-pr-review-rerequested
           with:
