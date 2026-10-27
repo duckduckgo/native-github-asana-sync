@@ -25,9 +25,12 @@ function buildAsanaClient() {
     };
 }
 
-function buildGithubClient(githubPAT) {
+// Without `baseUrl` the client talks to github.com. Pass `github.context.apiUrl`
+// to talk to the host that sent the event instead, e.g. dub (GHES).
+function buildGithubClient(githubPAT, baseUrl) {
     return new octokit.Octokit({
         auth: githubPAT,
+        ...(baseUrl && { baseUrl }),
     });
 }
 
@@ -1117,8 +1120,7 @@ async function buildReviewRerequestComment() {
     const pullRequest = payload.pull_request;
     const { owner, repo } = github.context.repo;
     const githubPAT = core.getInput('github-pat', { required: true });
-    // Talk to the API of the host that sent the event, so this also works on GHES.
-    const githubClient = new octokit.Octokit({ auth: githubPAT, baseUrl: github.context.apiUrl });
+    const githubClient = buildGithubClient(githubPAT, github.context.apiUrl);
 
     let hasReviewed;
     try {
