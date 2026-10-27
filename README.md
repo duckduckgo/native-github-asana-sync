@@ -566,7 +566,7 @@ jobs:
 
 ### Build re-requested review comment
 
-On a `pull_request` `review_requested` event, builds an Asana HTML comment that `@`-mentions the requested reviewer when the review is a **re-request**, e.g. "@reviewer, your review has been re-requested on <PR link>". GitHub sends the same event for first requests and re-requests, so the request is treated as a re-request only when the reviewer has already submitted a review on the PR (pending, unsubmitted reviews don't count). First requests, team requests and reviewers missing from `user-map` produce no output. Only the reviewer is mentioned, so the person who re-requested the review doesn't get a notification.
+On a `pull_request` `review_requested` event, builds an Asana HTML comment that `@`-mentions the requested reviewer when the review is a **re-request**, e.g. "@reviewer, your review has been re-requested on <PR link>". GitHub sends the same event for first requests and re-requests, so the request is treated as a re-request only when the reviewer has already submitted a review on the PR (pending, unsubmitted reviews don't count). Replying to an inline review thread also counts as a review, so someone who only replied to a thread is pinged the first time they're requested. First requests, team requests and reviewers missing from `user-map` produce no output. Only the reviewer is mentioned, so the person who re-requested the review doesn't get a notification.
 
 Like `build-mention-comment`, it does not post anything itself; pair it with `find-asana-task-id` and `post-comment-asana-task` (with `asana-task-comment-is-html: true`).
 
