@@ -32,6 +32,8 @@ This action integrates asana with github.
 - `find-asana-task-id` searches in the PR description for an Asana Task, given a prefix
 - `find-asana-task-ids` searches in the PR description for multiple Asana Tasks, given a prefix
 - `post-comment-asana-task` to post a comment in an Asana task
+- `build-mention-comment` to build an Asana @-mention comment from a PR review or comment
+- `build-review-rerequest-comment` to build an Asana @-mention comment when a PR review is re-requested
 - `send-mattermost-message` to send a message to a channel in Mattermost
 - `get-asana-task-permalink` to get the permalink for a given Asana Task ID
 - `mark-asana-task-complete` to mark an Asana task as complete or incomplete
@@ -560,6 +562,49 @@ jobs:
                   asana-task-id: ${{ steps.find-asana-task-id.outputs.asanaTaskId }}
                   asana-task-comment: ${{ steps.build-mention-comment.outputs.mentionComment }}
                   asana-task-comment-is-html: true
+```
+
+### Build re-requested review comment
+
+On a `pull_request` `review_requested` event, builds an Asana HTML comment that `@`-mentions the requested reviewer when the review is a **re-request**, e.g. "@reviewer, your review has been re-requested on <PR link>". GitHub sends the same event for first requests and re-requests, so the request is treated as a re-request only when the reviewer has already submitted a review on the PR (pending, unsubmitted reviews don't count). Replying to an inline review thread also counts as a review, so someone who only replied to a thread is pinged the first time they're requested. First requests, team requests and reviewers missing from `user-map` produce no output. Only the reviewer is mentioned, so the person who re-requested the review doesn't get a notification.
+
+Like `build-mention-comment`, it does not post anything itself; pair it with `find-asana-task-id` and `post-comment-asana-task` (with `asana-task-comment-is-html: true`).
+
+### `github-pat`
+
+**Required** Token used to list the PR's reviews. The workflow's `GITHUB_TOKEN` is enough.
+
+### `user-map`
+
+**Required** JSON string mapping GitHub logins to Asana user GIDs, e.g. `{"octocat":"1201234567890"}`. Parsed the same way as for `build-mention-comment`.
+
+#### Outputs
+
+- `shouldPost` — set to `'true'` only for a re-request of a mapped reviewer (unset otherwise).
+- `mentionComment` — the HTML `html_text` body to post, when `shouldPost` is `'true'`.
+
+#### Example Usage
+
+The `pr-review-rerequest-notifications` composite action wires the three steps together. It is separate from `pr-review-notifications`, so repos opt in by adding a workflow like this:
+
+```yaml
+on:
+    pull_request:
+        types: [review_requested]
+
+jobs:
+    review-rerequested:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  repository: duckduckgo/native-github-asana-sync
+                  path: native-github-asana-sync
+            - uses: ./native-github-asana-sync/.github/actions/pr-review-rerequest-notifications
+              with:
+                  trigger-phrase: 'Task/Issue URL:'
+                  asana_pat: ${{ secrets.asana_pat }}
+                  user-map: ${{ vars.GH_USER_MAP }}
 ```
 
 ### Send a message in Mattermost
