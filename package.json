@@ -19,12 +19,15 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "@actions/core": "^1.10.1",
-        "@actions/github": "^6.0.0",
-        "@mattermost/client": "^10.6.0",
-        "@octokit/core": "^5.2.1",
-        "asana": "^3.0.16",
-        "js-yaml": "^4.1.0"
+        "@actions/core": "^1.11.1",
+        "@actions/github": "^6.0.1",
+        "@mattermost/client": "^11.9.0",
+        "@octokit/core": "^5.2.2",
+        "asana": "^3.1.12",
+        "js-yaml": "^5.3.0"
+    },
+    "overrides": {
+        "undici": "^6.28.0"
     },
     "devDependencies": {
         "@duckduckgo/eslint-config": "github:duckduckgo/eslint-config#v0.1.0",
