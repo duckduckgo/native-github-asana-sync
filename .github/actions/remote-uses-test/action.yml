@@ -1,0 +1,22 @@
+name: Remote uses test
+# Throwaway prototype: calls the bundled action directly instead of `uses: ./native-github-asana-sync`
+inputs:
+    github_pat:
+        required: true
+outputs:
+    version:
+        value: ${{ steps.latest.outputs.version }}
+runs:
+    using: 'composite'
+    steps:
+        - name: Get latest release via dist/index.js
+          id: latest
+          shell: bash
+          env:
+              INPUT_ACTION: get-latest-repo-release
+              INPUT_GITHUB-PAT: ${{ inputs.github_pat }}
+              INPUT_GITHUB-ORG: duckduckgo
+              INPUT_GITHUB-REPOSITORY: native-github-asana-sync
+          run: |
+              node --version
+              node "$GITHUB_ACTION_PATH/../../../dist/index.js"
