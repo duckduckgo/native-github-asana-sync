@@ -76,7 +76,8 @@ jobs:
                       ${{ env.RELEASE_BODY }}
 
                       Action required:
-                      Update your workflows to use ${{ github.repository }}@${{ env.RELEASE_TAG }}
+                      Update every pin of ${{ github.repository }} to ${{ env.RELEASE_TAG }}, including the checkout ref: in the privacy review workflow.
+                      How to find both pin forms: https://github.com/${{ github.repository }}#updating-to-a-new-release
 
                       Release: ${{ env.RELEASE_URL }}
                   action: 'create-asana-task'
@@ -106,7 +107,8 @@ jobs:
             #         ${{ env.RELEASE_BODY }}
             #
             #         Action required:
-            #         Update your workflows to use ${{ github.repository }}@${{ env.RELEASE_TAG }}
+            #         Update every pin of ${{ github.repository }} to ${{ env.RELEASE_TAG }}, including the checkout ref: in the privacy review workflow.
+            #         How to find both pin forms: https://github.com/${{ github.repository }}#updating-to-a-new-release
             #
             #         Release: ${{ env.RELEASE_URL }}
             #     action: 'create-asana-task'

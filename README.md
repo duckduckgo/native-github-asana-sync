@@ -859,6 +859,33 @@ jobs:
                   is-complete: true
 ```
 
+## Updating to a new release
+
+Consumers pin this action in two ways, and a release bump has to update both.
+
+Workflow steps reference the action directly, so the tag sits next to the repository name:
+
+```yaml
+- uses: duckduckgo/native-github-asana-sync@vX.Y.Z
+```
+
+The privacy review workflow checks the repository out instead, because `.github/actions/privacy-review` calls the action from a local `./native-github-asana-sync` path. The pin is the checkout `ref:`, on its own line:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+      ref: vX.Y.Z
+      path: native-github-asana-sync
+      repository: duckduckgo/native-github-asana-sync
+```
+
+After bumping, check that nothing still points at an older release. Any line this prints is a pin left to update, or a `ref:` belonging to another repository's checkout that you can ignore:
+
+```bash
+NEW=vX.Y.Z
+grep -rnE 'native-github-asana-sync@v|ref: v[0-9]' .github | grep -v "$NEW"
+```
+
 ## Contributing
 
 ### Building
